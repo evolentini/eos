@@ -123,6 +123,12 @@ typedef struct task_context_s {
  */
 void TaskError(void);
 
+/**
+ * @brief Busca y asigna un desciptor para una nueva tarea
+ *
+ */
+task_t AllocateDescriptor(void);
+
 /* === Definiciones de variables internas ====================================================== */
 
 /**
@@ -135,6 +141,14 @@ static struct task_s tasks[TASKS_MAX_COUNT] = { 0 };
  */
 static uint8_t task_stacks[TASKS_MAX_COUNT][TASK_STACK_SIZE] = { 0 };
 
+/**
+ * @brief Función para preparar el contexto inicial de una tarea nueva
+ *
+ * @param[in]  task         Puntero al desciptor de la nueva tarea
+ * @param[in]  entry_point  Punto de entrada de la función que imeplementa la tarea
+ */
+void PrepareContext(task_t task, task_entry_point_t entry_point);
+
 /* === Definiciones de variables externas ====================================================== */
 
 /* === Definiciones de funciones internas ====================================================== */
@@ -145,26 +159,46 @@ void TaskError(void)
     while (1) { }
 }
 
+task_t AllocateDescriptor(void)
+{
+    // Variable con el indice de la ultima tarea creada
+    static int last_created = 0;
+
+    // Variable con el resultado del descriptor de tarea asignado
+    task_t task = NULL;
+
+    if (last_created < TASKS_MAX_COUNT) {
+        task = &tasks[last_created];
+        last_created++;
+    }
+    return task;
+}
+
+void PrepareContext(task_t task, task_entry_point_t entry_point)
+{
+    task->stack_pointer -= sizeof(struct task_context_s);
+
+    task_context_t context = task->stack_pointer;
+    context->context_auto.lr = (uint32_t)TaskError;
+    context->context_auto.xPSR = 0x21000000;
+    context->context_auto.pc = (uint32_t)entry_point;
+}
+
 /* === Definiciones de funciones externas ====================================================== */
 
 void TaskCreate(task_entry_point_t entry_point)
 {
     // Variable con la ultima dirección de pila asignada
     static void* asigned_stack = task_stacks;
-    // Variable con el indice de la ultima tarea creada
-    static int last_created = 0;
 
-    // Creación de una pila para la nueva tarea
-    asigned_stack += TASK_STACK_SIZE;
-    task_context_t context = asigned_stack - sizeof(struct task_context_s);
-    tasks[last_created].stack_pointer = context;
-    tasks[last_created].state = READY;
-    last_created++;
-
-    // Preparación del contexto inicial de la tarea
-    context->context_auto.lr = (uint32_t)TaskError;
-    context->context_auto.xPSR = 0x21000000;
-    context->context_auto.pc = (uint32_t)entry_point;
+    // Variable con el descriptor signado a la nueva tarea
+    task_t task = AllocateDescriptor();
+    if (task) {
+        asigned_stack += TASK_STACK_SIZE;
+        task->stack_pointer = asigned_stack;
+        PrepareContext(task, entry_point);
+        task->state = READY;
+    }
 }
 
 void StartScheduler(void)
