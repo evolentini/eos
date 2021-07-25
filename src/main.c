@@ -169,6 +169,11 @@ void TareaB(void);
 void TaskCreate(void (*entry_point)(void));
 
 /**
+ * @brief Función para iniciar el planificador del sistema operativo
+ */
+void StartScheduler(void);
+
+/**
  * @brief Función que indica un error en el cambio de contexto
  *
  * @remark Esta funcion no debería ejecutarse nunca, solo se accede a la misma si las funciones
@@ -192,7 +197,7 @@ static uint8_t task_stacks[TASKS_MAX_COUNT][TASK_STACK_SIZE] = { 0 };
 
 /* === Definiciones de funciones internas ====================================================== */
 
-void SysTick_Init(void)
+void StartScheduler(void)
 {
     __asm__ volatile("cpsid i");
 
@@ -204,6 +209,11 @@ void SysTick_Init(void)
     NVIC_SetPriority(SysTick_IRQn, (1 << __NVIC_PRIO_BITS) - 1);
 
     __asm__ volatile("cpsie i");
+
+    /* Espera de la primera interupción para arrancar el sistema */
+    while (1) {
+        __asm__ volatile("wfi");
+    }
 }
 
 __attribute__((naked())) void SysTick_Handler(void)
@@ -305,12 +315,9 @@ int main(void)
 
     /* Configuración de los dispositivos de la placa */
     boardConfig();
-    SysTick_Init();
 
-    /* Espera de la primera interupción para arrancar el sistema */
-    while (1) {
-        __asm__ volatile("wfi");
-    }
+    /* Arranque del sistemaoperativo */
+    StartScheduler();
 
     return 0;
 }
