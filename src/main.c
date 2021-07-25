@@ -53,6 +53,11 @@
 
 /* === Definiciones y Macros =================================================================== */
 
+/**
+ * @brief Valor del contador para la demora en el parpadeo del led
+ */
+#define COUNT_DELAY 3000000
+
 /* === Declaraciones de tipos de datos internos ================================================ */
 
 /* === Declaraciones de funciones internas ===================================================== */
@@ -72,6 +77,16 @@ void SysTick_Init(void);
  * temporizador del sistema.
  */
 void SysTick_Handler(void);
+
+/**
+ * @brief Función para generar una demora para permitir el parpadeo de los leds
+ */
+void Delay(void);
+
+/**
+ * @brief Función que implementa el parpadeo de un led con una rutina de demora
+ */
+void TareaA(void);
 
 /* === Definiciones de variables internas ====================================================== */
 
@@ -107,6 +122,23 @@ __attribute__((naked())) void SysTick_Handler(void)
     __asm__ volatile("bx lr");
 }
 
+void Delay(void)
+{
+    uint32_t i;
+
+    for (i = COUNT_DELAY; i != 0; i--) {
+        __asm__ volatile("nop");
+    }
+}
+
+void TareaA(void)
+{
+    while (1) {
+        gpioToggle(LED2);
+        Delay();
+    }
+}
+
 /* === Definiciones de funciones externas ====================================================== */
 
 int main(void)
@@ -117,7 +149,7 @@ int main(void)
 
     /* Espera de la primera interupción para arrancar el sistema */
     while (1) {
-        __asm__ volatile("wfi");
+        TareaA();
     }
 
     return 0;
