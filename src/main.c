@@ -142,6 +142,13 @@ void TareaA(void);
 void TareaB(void);
 
 /**
+ * @brief Función para crear una nueva tarea
+ *
+ * @param[in]  entry_point  Puntero a la función que implementa la tarea
+ */
+void TaskCreate(void (*entry_point)(void));
+
+/**
  * @brief Función que indica un error en el cambio de contexto
  *
  * @remark Esta funcion no debería ejecutarse nunca, solo se accede a la misma si las funciones
@@ -240,6 +247,25 @@ void TareaB(void)
     }
 }
 
+void TaskCreate(void (*entry_point)(void))
+{
+    // Variable con la ultima dirección de pila asignada
+    static void* asigned_stack = task_stacks;
+    // Variable con el indice de la ultima tarea creada
+    static int last_created = 0;
+
+    // Creación de una pila para la nueva tarea
+    asigned_stack += TASK_STACK_SIZE;
+    task_context_t context = asigned_stack - sizeof(struct task_context_s);
+    tasks_stack_pointers[last_created] = context;
+    last_created++;
+
+    // Preparación del contexto inicial de la tarea
+    context->context_auto.lr = (uint32_t)TaskError;
+    context->context_auto.xPSR = 0x21000000;
+    context->context_auto.pc = (uint32_t)entry_point;
+}
+
 void TaskError(void)
 {
     gpioWrite(LEDR, true);
@@ -250,26 +276,9 @@ void TaskError(void)
 
 int main(void)
 {
-    // Variable con la ultima dirección de pila asignada
-    void* asigned_stack = task_stacks;
-
-    // Creación de la primera tarea
-    asigned_stack += (TASK_STACK_SIZE);
-    task_context_t context = asigned_stack - sizeof(struct task_context_s);
-
-    context->context_auto.lr = (uint32_t)TaskError;
-    context->context_auto.xPSR = 0x21000000;
-    context->context_auto.pc = (uint32_t)TareaA;
-    tasks_stack_pointers[0] = context;
-
-    // Creación de la segunda tarea
-    asigned_stack += (TASK_STACK_SIZE);
-    context = asigned_stack - sizeof(struct task_context_s);
-
-    context->context_auto.lr = (uint32_t)TaskError;
-    context->context_auto.xPSR = 0x21000000;
-    context->context_auto.pc = (uint32_t)TareaB;
-    tasks_stack_pointers[1] = context;
+    /* Creación de las tareas */
+    TaskCreate(TareaA);
+    TaskCreate(TareaB);
 
     /* Configuración de los dispositivos de la placa */
     boardConfig();
