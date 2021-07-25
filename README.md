@@ -32,4 +32,4 @@ Este proyecto está desarrollado dentro del entorno del proyecto (CIAA)[www.proy
 
 ## En este release
 
-En esta versión del proyecto se muestra la implementación básica con dos tareas. En esta implementación se utiliza el puntero de pila principal (MSP) tanto para el sistema como para las tareas.
+En esta versión del proyecto se mejora la implementación utilizando las caracteristicas del Cortex-M4 para proteger al sistema operativo: se utiliza un puntero de pila indepentdiente (PSP) para lar tareas y se activa el modo de ejecución no privilegiado al terminar el cambio de contexto.
