@@ -29,3 +29,7 @@ Este proyecto está desarrollado dentro del entorno del proyecto (CIAA)[www.proy
 - Ejecutar el comando `make` en la carpeta que contiene al firmware de CIAA para compilar el proyecto.
 
 - Ejecutar el comando `make download` para grabar el proyecto en la placa.
+
+## En este release
+
+En esta versión del proyecto se muestra la implementación básica con dos tareas. En esta implementación se utiliza el puntero de pila principal (MSP) tanto para el sistema como para las tareas.
