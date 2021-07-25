@@ -43,6 +43,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   8 | 2021.07.25 | evolentini      | Se cambia para usar las tareas parametrizadas           |
  **|   7 | 2021.07.25 | evolentini      | Las funciones de tareas se mueven a un archivo separado |
  **|   6 | 2021.07.25 | evolentini      | Se agregan descriptores y estados para las tareas       |
  **|   5 | 2021.07.25 | evolentini      | Punteros de pila separados y modo no privilegiado       |
@@ -67,27 +68,38 @@
 /**
  * @brief Valor del contador para la demora en el parpadeo del led
  */
-#define COUNT_DELAY 3000000
+#define COUNT_DELAY 300000
 
 /* === Declaraciones de tipos de datos internos ================================================ */
+
+typedef struct parpadeo_s {
+    gpioMap_t led;
+    int periodo;
+} * parpadeo_t;
 
 /* === Declaraciones de funciones internas ===================================================== */
 
 /**
  * @brief Función para generar demoras
  * Función basica que genera una demora para permitir el parpadeo de los leds
+ *
+ * @param[in] espera  Tiempo que demora la espera
  */
-void Delay(void);
+void Delay(int espera);
 
 /**
  * @brief Función que implementa la primera tarea del sistema
+ *
+ * @param[in] data  Puntero al bloque de datos para parametrizar la tarea
  */
-void TareaA(void);
+void TareaA(void* data);
 
 /**
  * @brief Función que implementa la segunda tarea del sistema
+ *
+ * @param[in] data  Puntero al bloque de datos para parametrizar la tarea
  */
-void TareaB(void);
+void TareaB(void* data);
 
 /* === Definiciones de variables internas ====================================================== */
 
@@ -95,17 +107,19 @@ void TareaB(void);
 
 /* === Definiciones de funciones internas ====================================================== */
 
-void Delay(void)
+void Delay(int espera)
 {
     uint32_t i;
-
-    for (i = COUNT_DELAY; i != 0; i--) {
-        __asm__ volatile("nop");
+    while (espera--) {
+        for (i = COUNT_DELAY; i != 0; i--) {
+            __asm__ volatile("nop");
+        }
     }
 }
 
-void TareaA(void)
+void TareaA(void* data)
 {
+    (void)data;
     bool valor;
     while (1) {
         valor = !gpioRead(TEC4);
@@ -113,11 +127,12 @@ void TareaA(void)
     }
 }
 
-void TareaB(void)
+void TareaB(void* data)
 {
+    parpadeo_t parametros = data;
     while (1) {
-        gpioToggle(LED2);
-        Delay();
+        gpioToggle(parametros->led);
+        Delay(parametros->periodo);
     }
 }
 
@@ -125,9 +140,15 @@ void TareaB(void)
 
 int main(void)
 {
+    static const struct parpadeo_s PARAMETROS[] = {
+        { .led = LED1, .periodo = 10 },
+        { .led = LED2, .periodo = 5 },
+    };
+
     /* Creación de las tareas */
-    TaskCreate(TareaA);
-    TaskCreate(TareaB);
+    TaskCreate(TareaA, NULL);
+    TaskCreate(TareaB, (void*)&PARAMETROS[0]);
+    TaskCreate(TareaB, (void*)&PARAMETROS[1]);
 
     /* Configuración de los dispositivos de la placa */
     boardConfig();

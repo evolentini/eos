@@ -32,4 +32,4 @@ Este proyecto está desarrollado dentro del entorno del proyecto (CIAA)[www.proy
 
 ## En este release
 
-En esta versión del proyecto se movió toda la gestion de tareas a un archivo independiente, se implementó una primera versión de los descriptores de tareas, se definieron los estados de las tareas y se movió el cambio de contexto de la rutina de SysTick a la rutina de PendSV.
+En esta versión del proyecto se separó la creación de la tarea de la preparación del contexto inicial, lo que facilitará en un futuro la potabilidad del sistema operativo encapsulando todo lo que depende especificamente del procesado es un archivo separado. Ademas se agregó un puntero que se envia a la tarea como parametro y que facilita el poder instanciar varias tareas a partir de una misma función.

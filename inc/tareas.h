@@ -41,6 +41,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   2 | 2021.09.25 | evolentini      | Se agrega un puntero que permite parametrizar la tarea  |
  **|   1 | 2021.09.25 | evolentini      | Version inicial del archivo                             |
  **
  ** @addtogroup eos
@@ -61,7 +62,7 @@ extern "C" {
 /**
  * @brief Tipo de datos con un puntero a una funcion que implementa una tarea
  */
-typedef void (*task_entry_point_t)(void);
+typedef void (*task_entry_point_t)(void* data);
 
 /* === Declaraciones de variables externas ===================================================== */
 
@@ -71,8 +72,9 @@ typedef void (*task_entry_point_t)(void);
  * @brief Función para crear una nueva tarea
  *
  * @param[in]  entry_point  Puntero a la función que implementa la tarea
+ * @param[in]  data         Puntero al bloque de datos para parametrizar la tarea
  */
-void TaskCreate(task_entry_point_t entry_point);
+void TaskCreate(task_entry_point_t entry_point, void* data);
 
 /**
  * @brief Función para iniciar el planificador del sistema operativo

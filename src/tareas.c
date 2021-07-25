@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   3 | 2021.09.25 | evolentini      | Se agrega un puntero que permite parametrizar la tarea  |
  **|   2 | 2021.09.25 | evolentini      | Se mueve el cambio de contexto a la rutina PendSV       |
  **|   1 | 2021.09.25 | evolentini      | Version inicial del archivo                             |
  **
@@ -57,7 +58,7 @@
 /**
  * @brief Cantidad de máxima de tareas que se podrán crear
  */
-#define TASKS_MAX_COUNT 2
+#define TASKS_MAX_COUNT 3
 
 /**
  * @brief Cantidad de bytes asignado como pila para cada tarea
@@ -146,8 +147,9 @@ static uint8_t task_stacks[TASKS_MAX_COUNT][TASK_STACK_SIZE] = { 0 };
  *
  * @param[in]  task         Puntero al desciptor de la nueva tarea
  * @param[in]  entry_point  Punto de entrada de la función que imeplementa la tarea
+ * @param[in]  data         Puntero al bloque de datos para parametrizar la tarea
  */
-void PrepareContext(task_t task, task_entry_point_t entry_point);
+void PrepareContext(task_t task, task_entry_point_t entry_point, void* data);
 
 /* === Definiciones de variables externas ====================================================== */
 
@@ -174,7 +176,7 @@ task_t AllocateDescriptor(void)
     return task;
 }
 
-void PrepareContext(task_t task, task_entry_point_t entry_point)
+void PrepareContext(task_t task, task_entry_point_t entry_point, void* data)
 {
     task->stack_pointer -= sizeof(struct task_context_s);
 
@@ -182,11 +184,12 @@ void PrepareContext(task_t task, task_entry_point_t entry_point)
     context->context_auto.lr = (uint32_t)TaskError;
     context->context_auto.xPSR = 0x21000000;
     context->context_auto.pc = (uint32_t)entry_point;
+    context->context_auto.r0 = (uint32_t)data;
 }
 
 /* === Definiciones de funciones externas ====================================================== */
 
-void TaskCreate(task_entry_point_t entry_point)
+void TaskCreate(task_entry_point_t entry_point, void* data)
 {
     // Variable con la ultima dirección de pila asignada
     static void* asigned_stack = task_stacks;
@@ -196,7 +199,7 @@ void TaskCreate(task_entry_point_t entry_point)
     if (task) {
         asigned_stack += TASK_STACK_SIZE;
         task->stack_pointer = asigned_stack;
-        PrepareContext(task, entry_point);
+        PrepareContext(task, entry_point, data);
         task->state = READY;
     }
 }
