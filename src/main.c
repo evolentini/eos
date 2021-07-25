@@ -43,6 +43,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   6 | 2021.07.25 | evolentini      | Se agregan descriptores y estados para las tareas       |
  **|   5 | 2021.07.25 | evolentini      | Punteros de pila separados y modo no privilegiado       |
  **|   4 | 2021.07.09 | evolentini      | Migracion del ejemplo a firmware CIAA V2                |
  **|   3 | 2017.10.16 | evolentini      | Correción en el formato del archivo                     |
@@ -77,6 +78,25 @@
 #define TASK_STACK_SIZE 256
 
 /* === Declaraciones de tipos de datos internos ================================================ */
+
+/**
+ * @brief Tipo de datos enumerado con los estados de las tareas
+ */
+typedef enum task_state_e {
+    CREATING = 0,
+    READY,
+    RUNNING,
+} task_state_t;
+
+/**
+ * @brief Estructura que almacena el descriptor de una tarea
+ */
+typedef struct task_s {
+    //! Estado actual de la tarea
+    task_state_t state;
+    //! Copia del puntero de pila de la tarea
+    void* stack_pointer;
+} * task_t;
 
 /**
  * @brief Estructura con los registros del contexto de la tarea almacenados en la pila
@@ -161,7 +181,7 @@ void TaskError(void);
 /**
  * @brief Vector que almacena los descriptores de tareas
  */
-static void* tasks_stack_pointers[TASKS_MAX_COUNT] = { 0 };
+static struct task_s tasks[TASKS_MAX_COUNT] = { 0 };
 
 /**
  * @brief Vector que proporciona espacio para la pila de las tareas
@@ -192,10 +212,11 @@ __attribute__((naked())) void SysTick_Handler(void)
     static int activa = TASKS_MAX_COUNT;
 
     /* Si hay una tarea activa se salva el contexto en su correspondiente pila */
-    if (activa != TASKS_MAX_COUNT) {
+    if (tasks[activa].state == RUNNING) {
+        tasks[activa].state = READY;
         __asm__ volatile("mrs r0, psp");
         __asm__ volatile("stmdb r0!, {r4-r11}");
-        __asm__ volatile("str r0, %0" : "=m"(tasks_stack_pointers[activa]));
+        __asm__ volatile("str r0, %0" : "=m"(tasks[activa].stack_pointer));
     }
 
     /* Se determina seleciona la proxima tarea que utilizará el procesador */
@@ -205,7 +226,7 @@ __attribute__((naked())) void SysTick_Handler(void)
         gpioToggle(LEDB);
 
     /* Se recupera el contexto de la tarea a ejecutar desde su correspondiente pila */
-    __asm__ volatile("ldr r0, %0" : : "m"(tasks_stack_pointers[activa]));
+    __asm__ volatile("ldr r0, %0" : : "m"(tasks[activa].stack_pointer));
     __asm__ volatile("ldmia r0!, {r4-r11}");
     __asm__ volatile("msr psp, r0");
     __asm__ volatile("isb");
@@ -215,6 +236,7 @@ __attribute__((naked())) void SysTick_Handler(void)
     __asm__ volatile("orr r0, #1");
     __asm__ volatile("msr control, r0");
     __asm__ volatile("isb");
+    tasks[activa].state = RUNNING;
 
     /*  Se devuelve el uso del procesador a la tarea designada */
     __asm__ volatile("ldr lr,=0xFFFFFFFD");
@@ -257,7 +279,8 @@ void TaskCreate(void (*entry_point)(void))
     // Creación de una pila para la nueva tarea
     asigned_stack += TASK_STACK_SIZE;
     task_context_t context = asigned_stack - sizeof(struct task_context_s);
-    tasks_stack_pointers[last_created] = context;
+    tasks[last_created].stack_pointer = context;
+    tasks[last_created].state = READY;
     last_created++;
 
     // Preparación del contexto inicial de la tarea
