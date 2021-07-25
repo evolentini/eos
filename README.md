@@ -32,4 +32,4 @@ Este proyecto está desarrollado dentro del entorno del proyecto (CIAA)[www.proy
 
 ## En este release
 
-En esta versión del proyecto se mejora la implementación utilizando las caracteristicas del Cortex-M4 para proteger al sistema operativo: se utiliza un puntero de pila indepentdiente (PSP) para lar tareas y se activa el modo de ejecución no privilegiado al terminar el cambio de contexto.
+En esta versión del proyecto se movió toda la gestion de tareas a un archivo independiente, se implementó una primera versión de los descriptores de tareas, se definieron los estados de las tareas y se movió el cambio de contexto de la rutina de SysTick a la rutina de PendSV.

@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   2 | 2021.09.25 | evolentini      | Se mueve el cambio de contexto a la rutina PendSV       |
  **|   1 | 2021.09.25 | evolentini      | Version inicial del archivo                             |
  **
  ** @addtogroup eos
@@ -175,7 +176,8 @@ void StartScheduler(void)
     SysTick_Config(SystemCoreClock / 5000);
 
     /* Update priority set by SysTick_Config */
-    NVIC_SetPriority(SysTick_IRQn, (1 << __NVIC_PRIO_BITS) - 1);
+    NVIC_SetPriority(SysTick_IRQn, (1 << __NVIC_PRIO_BITS) - 2);
+    NVIC_SetPriority(PendSV_IRQn, (1 << __NVIC_PRIO_BITS) - 1);
 
     __asm__ volatile("cpsie i");
 
@@ -185,9 +187,18 @@ void StartScheduler(void)
     }
 }
 
-__attribute__((naked())) void SysTick_Handler(void)
+void SysTick_Handler(void)
 {
     static int divisor = 0;
+    divisor = (divisor + 1) % 1000;
+    if (divisor == 0)
+        gpioToggle(LEDB);
+
+    SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
+}
+
+__attribute__((naked())) void PendSV_Handler(void)
+{
     static int activa = TASKS_MAX_COUNT;
 
     /* Si hay una tarea activa se salva el contexto en su correspondiente pila */
@@ -200,9 +211,6 @@ __attribute__((naked())) void SysTick_Handler(void)
 
     /* Se determina seleciona la proxima tarea que utilizará el procesador */
     activa = (activa + 1) % TASKS_MAX_COUNT;
-    divisor = (divisor + 1) % 1000;
-    if (divisor == 0)
-        gpioToggle(LEDB);
 
     /* Se recupera el contexto de la tarea a ejecutar desde su correspondiente pila */
     __asm__ volatile("ldr r0, %0" : : "m"(tasks[activa].stack_pointer));
