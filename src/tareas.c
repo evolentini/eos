@@ -58,7 +58,7 @@
 /**
  * @brief Cantidad de máxima de tareas que se podrán crear
  */
-#define TASKS_MAX_COUNT 3
+#define TASKS_MAX_COUNT 8
 
 /**
  * @brief Cantidad de bytes asignado como pila para cada tarea
@@ -151,6 +151,14 @@ static uint8_t task_stacks[TASKS_MAX_COUNT][TASK_STACK_SIZE] = { 0 };
  */
 void PrepareContext(task_t task, task_entry_point_t entry_point, void* data);
 
+/**
+ * @brief Función para determinar la tarea a la que se otorga el procesador
+ *
+ * @param[in]  activa  Indice de la tarea activa hasta el momento del cambio de contexto
+ * @return     int     Indice de la tarea a la que se le otorga el procesador
+ */
+int Schedule(int activa);
+
 /* === Definiciones de variables externas ====================================================== */
 
 /* === Definiciones de funciones internas ====================================================== */
@@ -185,6 +193,14 @@ void PrepareContext(task_t task, task_entry_point_t entry_point, void* data)
     context->context_auto.xPSR = 0x21000000;
     context->context_auto.pc = (uint32_t)entry_point;
     context->context_auto.r0 = (uint32_t)data;
+}
+
+int Schedule(int activa)
+{
+    do {
+        activa = (activa + 1) % TASKS_MAX_COUNT;
+    } while (tasks[activa].state != READY);
+    return activa;
 }
 
 /* === Definiciones de funciones externas ====================================================== */
@@ -247,7 +263,7 @@ __attribute__((naked())) void PendSV_Handler(void)
     }
 
     /* Se determina seleciona la proxima tarea que utilizará el procesador */
-    activa = (activa + 1) % TASKS_MAX_COUNT;
+    activa = Schedule(activa);
 
     /* Se recupera el contexto de la tarea a ejecutar desde su correspondiente pila */
     __asm__ volatile("ldr r0, %0" : : "m"(tasks[activa].stack_pointer));
