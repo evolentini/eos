@@ -38,9 +38,11 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
- **|   3 | 2021.09.25 | evolentini      | Se agrega un puntero que permite parametrizar la tarea  |
- **|   2 | 2021.09.25 | evolentini      | Se mueve el cambio de contexto a la rutina PendSV       |
- **|   1 | 2021.09.25 | evolentini      | Version inicial del archivo                             |
+ **|   5 | 2021.07.02 | evolentini      | Se integra todo el estado en la estructura kernel       |
+ **|   4 | 2021.07.02 | evolentini      | Se separa el codigo dependiente del procesador          |
+ **|   3 | 2021.07.25 | evolentini      | Se agrega un puntero que permite parametrizar la tarea  |
+ **|   2 | 2021.07.25 | evolentini      | Se mueve el cambio de contexto a la rutina PendSV       |
+ **|   1 | 2021.07.25 | evolentini      | Version inicial del archivo                             |
  **
  ** @addtogroup eos
  ** @brief Sistema operativo
@@ -87,6 +89,20 @@ typedef struct task_s {
 } * task_t;
 
 /**
+ * @brief Estructura de datos que almacena el estado del nuclo
+ */
+typedef struct kernel_s {
+    //! Vector que almacena los descriptores de tareas
+    struct task_s tasks[TASKS_MAX_COUNT];
+    //! Vector que proporciona espacio para la pila de las tareas
+    uint8_t task_stacks[TASKS_MAX_COUNT][TASK_STACK_SIZE];
+    //! Variable con el indice de la ultima tarea creada
+    uint8_t last_created;
+    //! Puntero al descriptor de la tarea en ejecución
+    uint8_t active_task;
+} * kernel_t;
+
+/**
  * @brief Estructura con los registros del contexto de la tarea almacenados en la pila
  */
 typedef struct task_context_s {
@@ -100,6 +116,7 @@ typedef struct task_context_s {
         uint32_t r9;
         uint32_t r10;
         uint32_t r11;
+        uint32_t lr;
     } context_manual;
     //! Contexto almacenado automaticamente por la excepción
     struct task_context_auto_s {
@@ -130,18 +147,6 @@ void TaskError(void);
  */
 task_t AllocateDescriptor(void);
 
-/* === Definiciones de variables internas ====================================================== */
-
-/**
- * @brief Vector que almacena los descriptores de tareas
- */
-static struct task_s tasks[TASKS_MAX_COUNT] = { 0 };
-
-/**
- * @brief Vector que proporciona espacio para la pila de las tareas
- */
-static uint8_t task_stacks[TASKS_MAX_COUNT][TASK_STACK_SIZE] = { 0 };
-
 /**
  * @brief Función para preparar el contexto inicial de una tarea nueva
  *
@@ -152,12 +157,33 @@ static uint8_t task_stacks[TASKS_MAX_COUNT][TASK_STACK_SIZE] = { 0 };
 void PrepareContext(task_t task, task_entry_point_t entry_point, void* data);
 
 /**
- * @brief Función para determinar la tarea a la que se otorga el procesador
+ * @brief Función para recuperar el contexto de una tarea y cederle el procesador
  *
- * @param[in]  activa  Indice de la tarea activa hasta el momento del cambio de contexto
- * @return     int     Indice de la tarea a la que se le otorga el procesador
+ * @param[in]  stack_pinter Contenido del puntero de pila de la tarea a restaurar
  */
-int Schedule(int activa);
+__attribute__((naked())) void RetoreContext(void* stack_pointer);
+
+/**
+ * @brief Función para programar una llamada al planificado al terminar la interrupcion en curso
+ */
+void SchedulingRequired(void);
+
+/**
+ * @brief Función para determinar la tarea a la que se otorga el procesador
+ */
+void Schedule(void);
+
+/**
+ * @brief Función para implementar el control del tiempos del sistema operativo
+ */
+void TickEvent(void);
+
+/* === Definiciones de variables internas ====================================================== */
+
+/**
+ * @brief Variable con el estado del nucleo
+ */
+static struct kernel_s kernel[1] = { 0 };
 
 /* === Definiciones de variables externas ====================================================== */
 
@@ -171,15 +197,12 @@ void TaskError(void)
 
 task_t AllocateDescriptor(void)
 {
-    // Variable con el indice de la ultima tarea creada
-    static int last_created = 0;
-
     // Variable con el resultado del descriptor de tarea asignado
     task_t task = NULL;
 
-    if (last_created < TASKS_MAX_COUNT) {
-        task = &tasks[last_created];
-        last_created++;
+    if (kernel->last_created < TASKS_MAX_COUNT) {
+        task = &(kernel->tasks[kernel->last_created]);
+        (kernel->last_created)++;
     }
     return task;
 }
@@ -193,14 +216,45 @@ void PrepareContext(task_t task, task_entry_point_t entry_point, void* data)
     context->context_auto.xPSR = 0x21000000;
     context->context_auto.pc = (uint32_t)entry_point;
     context->context_auto.r0 = (uint32_t)data;
+    context->context_manual.lr = 0xFFFFFFFD;
 }
 
-int Schedule(int activa)
+__attribute__((naked())) void RetoreContext(void* stack_pointer)
+{
+    /* Se recupera el contexto de la tarea a ejecutar desde su correspondiente pila */
+    __asm__ volatile("ldmia r0!, {r4-r11,lr}");
+    __asm__ volatile("msr psp, r0");
+    __asm__ volatile("isb");
+
+    /* Se configura el modo ejecución de la tarea como no privilegiado */
+    __asm__ volatile("mrs r0, control");
+    __asm__ volatile("orr r0, #1");
+    __asm__ volatile("msr control, r0");
+    __asm__ volatile("isb");
+
+    __asm__ volatile("bx lr");
+}
+
+void SchedulingRequired(void)
+{
+    // Fija la bandera de pedido de la excepcion PendSV
+    SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
+}
+
+void Schedule(void)
 {
     do {
-        activa = (activa + 1) % TASKS_MAX_COUNT;
-    } while (tasks[activa].state != READY);
-    return activa;
+        kernel->active_task = (kernel->active_task + 1) % TASKS_MAX_COUNT;
+    } while (kernel->tasks[kernel->active_task].state != READY);
+}
+
+void TickEvent(void)
+{
+    static int divisor = 0;
+    divisor = (divisor + 1) % 1000;
+    if (divisor == 0)
+        gpioToggle(LEDB);
+    SchedulingRequired();
 }
 
 /* === Definiciones de funciones externas ====================================================== */
@@ -208,7 +262,7 @@ int Schedule(int activa)
 void TaskCreate(task_entry_point_t entry_point, void* data)
 {
     // Variable con la ultima dirección de pila asignada
-    static void* asigned_stack = task_stacks;
+    static void* asigned_stack = kernel->task_stacks;
 
     // Variable con el descriptor signado a la nueva tarea
     task_t task = AllocateDescriptor();
@@ -242,45 +296,26 @@ void StartScheduler(void)
 
 void SysTick_Handler(void)
 {
-    static int divisor = 0;
-    divisor = (divisor + 1) % 1000;
-    if (divisor == 0)
-        gpioToggle(LEDB);
-
-    SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
+    // Se llama a la funcion del sistema operativo para gestionar los tiempos
+    TickEvent();
 }
 
 __attribute__((naked())) void PendSV_Handler(void)
 {
-    static int activa = TASKS_MAX_COUNT;
-
     /* Si hay una tarea activa se salva el contexto en su correspondiente pila */
-    if (tasks[activa].state == RUNNING) {
-        tasks[activa].state = READY;
+    if (kernel->tasks[kernel->active_task].state == RUNNING) {
+        kernel->tasks[kernel->active_task].state = READY;
         __asm__ volatile("mrs r0, psp");
-        __asm__ volatile("stmdb r0!, {r4-r11}");
-        __asm__ volatile("str r0, %0" : "=m"(tasks[activa].stack_pointer));
+        __asm__ volatile("stmdb r0!, {r4-r11,lr}");
+        __asm__ volatile("str r0, %0" : "=m"(kernel->tasks[kernel->active_task].stack_pointer));
     }
 
     /* Se determina seleciona la proxima tarea que utilizará el procesador */
-    activa = Schedule(activa);
-
-    /* Se recupera el contexto de la tarea a ejecutar desde su correspondiente pila */
-    __asm__ volatile("ldr r0, %0" : : "m"(tasks[activa].stack_pointer));
-    __asm__ volatile("ldmia r0!, {r4-r11}");
-    __asm__ volatile("msr psp, r0");
-    __asm__ volatile("isb");
-
-    /* Se configura el modo ejecución de la tarea como no privilegiado */
-    __asm__ volatile("mrs r0, control");
-    __asm__ volatile("orr r0, #1");
-    __asm__ volatile("msr control, r0");
-    __asm__ volatile("isb");
-    tasks[activa].state = RUNNING;
+    Schedule();
+    kernel->tasks[kernel->active_task].state = RUNNING;
 
     /*  Se devuelve el uso del procesador a la tarea designada */
-    __asm__ volatile("ldr lr,=0xFFFFFFFD");
-    __asm__ volatile("bx lr");
+    RetoreContext(kernel->tasks[kernel->active_task].stack_pointer);
 }
 
 /* === Ciere de documentacion ================================================================== */

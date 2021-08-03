@@ -41,8 +41,8 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
- **|   2 | 2021.09.25 | evolentini      | Se agrega un puntero que permite parametrizar la tarea  |
- **|   1 | 2021.09.25 | evolentini      | Version inicial del archivo                             |
+ **|   2 | 2021.07.25 | evolentini      | Se agrega un puntero que permite parametrizar la tarea  |
+ **|   1 | 2021.07.25 | evolentini      | Version inicial del archivo                             |
  **
  ** @addtogroup eos
  ** @brief Sistema operativo
