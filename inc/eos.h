@@ -41,6 +41,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   2 | 2021.08.08 | evolentini      | Se agrega la cantidad de pioridades del sistema         |
  **|   1 | 2021.08.08 | evolentini      | Version inicial del archivo                             |
  **
  ** @addtogroup modulo 
@@ -75,6 +76,15 @@ extern "C" {
 #define EOS_TASK_STACK_SIZE 256
 #elif (EOS_TASK_STACK_SIZE < 128)
 #error "La cantidad minima de byte para asignar a una tarea es de 128 bytes"
+#endif
+
+/**
+ * @brief Define la máxima prioridad que se podrá asignar a una tarea
+ */
+#ifndef EOS_MAX_PRIORITY
+#define EOS_MAX_PRIORITY 4
+#elif (EOS_MAX_PRIORITY < 0 || EOS_MAX_PRIORITY > 16)
+#error "La maxima prioridad de las tareas debe ser mayor que 0 y menor que 16"
 #endif
 
 /* === Declaraciones de tipos de datos ========================================================= */

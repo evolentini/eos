@@ -41,6 +41,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   4 | 2021.08.08 | evolentini      | Se agrega soporte para prioridades en las tareas        |
  **|   3 | 2021.08.07 | evolentini      | Se agrega un servicio de espera pasiva                  |
  **|   2 | 2021.07.25 | evolentini      | Se agrega un puntero que permite parametrizar la tarea  |
  **|   1 | 2021.07.25 | evolentini      | Version inicial del archivo                             |
@@ -82,8 +83,11 @@ typedef struct task_s* task_t;
  *
  * @param[in]  entry_point  Puntero a la función que implementa la tarea
  * @param[in]  data         Puntero al bloque de datos para parametrizar la tarea
+ * @param[in]  priority     Prioridad de la tarea que se desea crear
+ *  
+ * @return                  Puntero al descriptor de la tarea creada
  */
-void TaskCreate(task_entry_point_t entry_point, void* data);
+task_t TaskCreate(task_entry_point_t entry_point, void* data, uint8_t priority);
 
 /**
  * @brief Función para iniciar el planificador del sistema operativo

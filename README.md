@@ -32,4 +32,4 @@ Este proyecto está desarrollado dentro del entorno del proyecto (CIAA)[www.proy
 
 ## En este release
 
-En esta versión del proyecto se implementó un nuevo estado para las tareas que les permite esperar eventos en forma pasiva. Para probar este nuevo esta se implemento ademas la primera API del sistema que permite esperar por una determinada cantidad de tiempo.
+En esta versión del proyecto se movio el planificador a un archivo independiente y se implementaron multiples colas circulaes para gestionar tareas con diferentes prioridades.

@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   8 | 2021.08.08 | evolentini      | Se agrega soporte para prioridades en las tareas        |
  **|   7 | 2021.08.08 | evolentini      | Se separa el planificador en un archivo independiente   |
  **|   6 | 2021.08.07 | evolentini      | Se agrega un servicio de espera pasiva                  |
  **|   5 | 2021.07.02 | evolentini      | Se integra todo el estado en la estructura kernel       |
@@ -84,6 +85,8 @@ typedef struct task_s {
     void* stack_pointer;
     //! Cantidad de ticks para terminar la espera
     uint32_t wait_ticks;
+    //! Prioridad actual de la tarea
+    uint8_t priority;
 } * task_t;
 
 /**
@@ -270,14 +273,14 @@ void TaskSetState(task_t task, task_state_t state)
     if (task->state != state) {
         task->state = state;
         if (task->state == READY && kernel->scheduler) {
-            SchedulerEnqueue(kernel->scheduler, task, 0);
+            SchedulerEnqueue(kernel->scheduler, task, task->priority);
         }
     }
 }
 
 /* === Definiciones de funciones externas ====================================================== */
 
-void TaskCreate(task_entry_point_t entry_point, void* data)
+task_t TaskCreate(task_entry_point_t entry_point, void* data, uint8_t priority)
 {
     // Variable con la ultima dirección de pila asignada
     static void* asigned_stack = kernel->task_stacks;
@@ -287,9 +290,11 @@ void TaskCreate(task_entry_point_t entry_point, void* data)
     if (task) {
         asigned_stack += EOS_TASK_STACK_SIZE;
         task->stack_pointer = asigned_stack;
+        task->priority = priority;
         PrepareContext(task, entry_point, data);
         TaskSetState(task, READY);
     }
+    return task;
 }
 
 void StartScheduler(void)
@@ -307,8 +312,9 @@ void StartScheduler(void)
     /* Creación del planificador y encolado de las tareas creadas */
     kernel->scheduler = SchedulerCreate();
     for (int index = 0; index < EOS_MAX_TASK_COUNT; index++) {
-        if (kernel->tasks[index].state == READY) {
-            SchedulerEnqueue(kernel->scheduler, &(kernel->tasks[index]), 0);
+        task_t task = &(kernel->tasks[index]);
+        if (task->state == READY) {
+            SchedulerEnqueue(kernel->scheduler, task, task->priority);
         }
     }
 

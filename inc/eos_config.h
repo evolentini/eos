@@ -41,6 +41,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   2 | 2021.08.08 | evolentini      | Se agrega la cantidad de pioridades del sistema         |
  **|   1 | 2021.08.08 | evolentini      | Version inicial del archivo                             |
  **
  ** @addtogroup eos
@@ -64,6 +65,12 @@ extern "C" {
  * @brief Cantidad de bytes asignado como pila para cada tarea
  */
 #define EOS_TASK_STACK_SIZE 256
+
+/**
+ * @brief Define la máxima prioridad que se podrá asignar a una tarea
+ */
+#define EOS_MAX_PRIORITY 4
+
 
 /* === Declaraciones de tipos de datos ========================================================= */
 

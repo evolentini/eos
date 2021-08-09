@@ -43,6 +43,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|  11 | 2021.08.08 | evolentini      | Se cambia para crear tareas con diferentes prioridades  |
  **|  10 | 2021.08.08 | evolentini      | Se cambia para crear una tarea desde una tarea          |
  **|   9 | 2021.08.08 | evolentini      | Se cambia para usar espera pasiva del sistema operativo |
  **|   8 | 2021.07.25 | evolentini      | Se cambia para usar las tareas parametrizadas           |
@@ -119,7 +120,7 @@ void TareaA(void* data)
     (void)data;
     bool valor;
 
-    TaskCreate(TareaB, (void*)&PARAMETROS[1]);
+    TaskCreate(TareaB, (void*)&PARAMETROS[1], 1);
 
     while (1) {
         valor = !gpioRead(TEC4);
@@ -141,8 +142,8 @@ void TareaB(void* data)
 int main(void)
 {
     /* Creación de las tareas */
-    TaskCreate(TareaA, NULL);
-    TaskCreate(TareaB, (void*)&PARAMETROS[0]);
+    TaskCreate(TareaA, NULL, 0);
+    TaskCreate(TareaB, (void*)&PARAMETROS[0], 1);
 
     /* Configuración de los dispositivos de la placa */
     boardConfig();
