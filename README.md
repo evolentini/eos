@@ -32,4 +32,4 @@ Este proyecto está desarrollado dentro del entorno del proyecto (CIAA)[www.proy
 
 ## En este release
 
-En esta versión del proyecto se movio el planificador a un archivo independiente y se implementaron multiples colas circulaes para gestionar tareas con diferentes prioridades.
+En esta versión del proyecto se agrego soporte para una tarea inactiva a la que se cede el procesador cuando no hay ninguna otra tarea para ejecutar. Se agregaron ademas tres notificación del sistema operativo al usuario para recibir eventos en cada SysTick del reloj, cuando se ejecuta la tarea iactiva del sistema y cuando una tarea termina.

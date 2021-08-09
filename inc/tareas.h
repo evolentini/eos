@@ -41,6 +41,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   5 | 2021.08.08 | evolentini      | Se agregan notificaciones del sistema al usuario        |
  **|   4 | 2021.08.08 | evolentini      | Se agrega soporte para prioridades en las tareas        |
  **|   3 | 2021.08.07 | evolentini      | Se agrega un servicio de espera pasiva                  |
  **|   2 | 2021.07.25 | evolentini      | Se agrega un puntero que permite parametrizar la tarea  |
@@ -94,7 +95,34 @@ task_t TaskCreate(task_entry_point_t entry_point, void* data, uint8_t priority);
  */
 void StartScheduler(void);
 
+/**
+ * @brief Función para esperar una cantidad de tiempo sin utilizar el procesador
+ * 
+ * @param[in]  delay        Cantidad de tiempo en milisegundos que espera la tarea 
+ */
 void WaitDelay(uint32_t delay);
+
+/**
+ * @brief Función de usuario para ejecutar cuando el sistema se encuentra inactivo
+ * 
+ * @remarks Esta función se ejecuta solo cuando el planificador no puede asignar el procesador
+ * a ninguna otra tarea. Esta tarea función no debería terminar nunca y no puede utilizar ningun
+ * servicio del sistema operativo ya que siempre debe permanecer en estado READY.
+ */
+void InactiveCallback(void);
+
+/**
+ * @brief Función de usuario para ejecutar en cada interrupcion del temporizador del sistema
+ * 
+ * @remarks Esta función se ejecuta en modo privilegiado y en el contexto del sistema operativo
+ * por lo que no se recomienda su utilización.
+ */
+void SysTickCallback(void);
+
+/**
+ * @brief Función de usuario para notificar la terminación de una tarea
+ */
+void EndTaskCallback(task_t task);
 
 /* === Ciere de documentacion ================================================================== */
 #ifdef __cplusplus

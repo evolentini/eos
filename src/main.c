@@ -43,6 +43,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|  12 | 2021.08.08 | evolentini      | Se cambia para utilizar las notificaciones del sistema  |
  **|  11 | 2021.08.08 | evolentini      | Se cambia para crear tareas con diferentes prioridades  |
  **|  10 | 2021.08.08 | evolentini      | Se cambia para crear una tarea desde una tarea          |
  **|   9 | 2021.08.08 | evolentini      | Se cambia para usar espera pasiva del sistema operativo |
@@ -115,6 +116,59 @@ static const struct parpadeo_s PARAMETROS[] = {
 
 /* === Definiciones de funciones internas ====================================================== */
 
+/**
+ * @brief Función de espera pasiva para la tarea iactiva del sistema
+ *
+ * @param espera Cantidad de tiempo de la espera
+ */
+void Delay(int espera)
+{
+    uint32_t i;
+    while (espera--) {
+        for (i = COUNT_DELAY; i != 0; i--) {
+            __asm__ volatile("nop");
+        }
+    }
+}
+
+/**
+ * @brief Función que parpadea el canal verde del led RGB cuando el sistema esta inactivo
+ */
+void InactiveCallback(void)
+{
+    gpioToggle(LEDG);
+    Delay(10);
+}
+
+/**
+ * @brief Función que parpadea el canal azul del led RGB cada 1000 ciclos del SysTick
+ */
+void SysTickCallback(void)
+{
+    static int divisor = 0;
+    divisor = (divisor + 1) % 1000;
+
+    if (divisor == 0) {
+        gpioToggle(LEDB);
+    }
+}
+
+/**
+ * @brief Función que prende un led cuando una tarea termina
+ *
+ * @param task Puntero al descriptor de la tarea que termina
+ */
+void EndTaskCallback(task_t task)
+{
+    // Enciende un led de error
+    gpioToggle(LEDR);
+}
+
+/**
+ * @brief Tarea que prende un led con una tecla
+ *
+ * @param data Puntero a los parametros de la tarea
+ */
 void TareaA(void* data)
 {
     (void)data;
@@ -125,15 +179,31 @@ void TareaA(void* data)
     while (1) {
         valor = !gpioRead(TEC4);
         gpioWrite(LED3, valor);
+        WaitDelay(100);
     }
 }
 
+/**
+ * @brief Tarea que parpadea un led con una espera pasiva
+ *
+ * @param data Puntero a los parametros de la tarea
+ */
 void TareaB(void* data)
 {
+    int count = 0;
+
     parpadeo_t parametros = data;
     while (1) {
         gpioToggle(parametros->led);
         WaitDelay(parametros->periodo);
+
+        // Bloque de codigo para matar una de las tareas
+        if (parametros->led == LED1) {
+            count++;
+            if (count == 10) {
+                break;
+            }
+        }
     }
 }
 

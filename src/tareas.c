@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|  10 | 2021.08.08 | evolentini      | Se agregan notificaciones del sistema al usuario        |
  **|   9 | 2021.08.08 | evolentini      | Se agrega soporte para una tarea inactiva del sistema   |
  **|   8 | 2021.08.08 | evolentini      | Se agrega soporte para prioridades en las tareas        |
  **|   7 | 2021.08.08 | evolentini      | Se separa el planificador en un archivo independiente   |
@@ -217,8 +218,8 @@ static struct kernel_s kernel[1] = { 0 };
 
 void TaskError(void)
 {
-    gpioWrite(LEDR, true);
-    while (1) { }
+    EndTaskCallback(kernel->active_task);
+    TaskSetState(kernel->active_task, CREATING);
 }
 
 task_t AllocateDescriptor(void)
@@ -247,6 +248,7 @@ void PrepareContext(task_t task, task_entry_point_t entry_point, void* data)
 
 __attribute__((naked())) void RetoreContext(void* stack_pointer)
 {
+    __asm__ volatile("cpsid i");
     /* Se recupera el contexto de la tarea a ejecutar desde su correspondiente pila */
     __asm__ volatile("ldmia r0!, {r4-r11,lr}");
     __asm__ volatile("msr psp, r0");
@@ -258,22 +260,20 @@ __attribute__((naked())) void RetoreContext(void* stack_pointer)
     __asm__ volatile("msr control, r0");
     __asm__ volatile("isb");
 
+    __asm__ volatile("cpsie i");
     __asm__ volatile("bx lr");
 }
 
 void SchedulingRequired(void)
 {
-    // Fija la bandera de pedido de la excepcion PendSV
-    SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
+    if (kernel->scheduler) {
+        // Fija la bandera de pedido de la excepcion PendSV
+        SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
+    }
 }
 
 void TickEvent(void)
 {
-    static int divisor = 0;
-    divisor = (divisor + 1) % 1000;
-    if (divisor == 0)
-        gpioToggle(LEDB);
-
     for (int index = 0; index < EOS_MAX_TASK_COUNT; index++) {
         task_t task = kernel->tasks[index];
         if (task->state == WAITING) {
@@ -284,8 +284,7 @@ void TickEvent(void)
             }
         }
     }
-
-    SchedulingRequired();
+    SysTickCallback();
 }
 
 void TaskSetState(task_t task, task_state_t state)
@@ -324,9 +323,18 @@ void TaskBackground(void* data)
     (void)data;
 
     while (1) {
-        /* Duerme el procesador hasta que llegue una interrupción */
-        __asm__ volatile("wfi");
+        InactiveCallback();
     }
+}
+
+__attribute__((weak())) void EndTaskCallback(task_t task) { }
+
+__attribute__((weak())) void SysTickCallback(void) { }
+
+__attribute__((weak())) void InactiveCallback(void)
+{
+    /* Duerme el procesador hasta que llegue una interrupción */
+    __asm__ volatile("wfi");
 }
 
 /* === Definiciones de funciones externas ====================================================== */
@@ -371,6 +379,7 @@ void StartScheduler(void)
         }
     }
 
+    SchedulingRequired();
     __asm__ volatile("cpsie i");
 
     /* Espera de la primera interupción para arrancar el sistema */
@@ -402,9 +411,11 @@ __attribute__((naked())) void PendSV_Handler(void)
 {
     /* Si hay una tarea activa se salva el contexto en su correspondiente pila */
     if ((kernel->active_task) && (kernel->active_task->state != CREATING)) {
+        __asm__ volatile("cpsid i");
         __asm__ volatile("mrs r0, psp");
         __asm__ volatile("stmdb r0!, {r4-r11,lr}");
         __asm__ volatile("str r0, %0" : "=m"(kernel->active_task->stack_pointer));
+        __asm__ volatile("cpsie i");
 
         if (kernel->active_task->state == RUNNING) {
             TaskSetState(kernel->active_task, READY);
