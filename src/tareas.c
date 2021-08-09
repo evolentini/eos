@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   6 | 2021.08.07 | evolentini      | Se agrega un servicio de espera pasiva                  |
  **|   5 | 2021.07.02 | evolentini      | Se integra todo el estado en la estructura kernel       |
  **|   4 | 2021.07.02 | evolentini      | Se separa el codigo dependiente del procesador          |
  **|   3 | 2021.07.25 | evolentini      | Se agrega un puntero que permite parametrizar la tarea  |
@@ -67,6 +68,8 @@
  */
 #define TASK_STACK_SIZE 256
 
+#define SERVICE_DELAY 1
+
 /* === Declaraciones de tipos de datos internos ================================================ */
 
 /**
@@ -75,6 +78,7 @@
 typedef enum task_state_e {
     CREATING = 0,
     READY,
+    WAITING,
     RUNNING,
 } task_state_t;
 
@@ -86,6 +90,8 @@ typedef struct task_s {
     task_state_t state;
     //! Copia del puntero de pila de la tarea
     void* stack_pointer;
+    //! Cantidad de ticks para terminar la espera
+    uint32_t wait_ticks;
 } * task_t;
 
 /**
@@ -96,10 +102,12 @@ typedef struct kernel_s {
     struct task_s tasks[TASKS_MAX_COUNT];
     //! Vector que proporciona espacio para la pila de las tareas
     uint8_t task_stacks[TASKS_MAX_COUNT][TASK_STACK_SIZE];
+    //! Puntero al descriptor de la tarea en ejecución
+    task_t active_task;
     //! Variable con el indice de la ultima tarea creada
     uint8_t last_created;
-    //! Puntero al descriptor de la tarea en ejecución
-    uint8_t active_task;
+    //! Indice de la ultima tarea activa en el arreglo
+    uint8_t last_active;
 } * kernel_t;
 
 /**
@@ -244,8 +252,9 @@ void SchedulingRequired(void)
 void Schedule(void)
 {
     do {
-        kernel->active_task = (kernel->active_task + 1) % TASKS_MAX_COUNT;
-    } while (kernel->tasks[kernel->active_task].state != READY);
+        kernel->last_active = (kernel->last_active + 1) % TASKS_MAX_COUNT;
+        kernel->active_task = &(kernel->tasks[kernel->last_active]);
+    } while (kernel->active_task->state != READY);
 }
 
 void TickEvent(void)
@@ -254,6 +263,18 @@ void TickEvent(void)
     divisor = (divisor + 1) % 1000;
     if (divisor == 0)
         gpioToggle(LEDB);
+
+    for (int index = 0; index < TASKS_MAX_COUNT; index++) {
+        task_t task = &(kernel->tasks[index]);
+        if (task->state == WAITING) {
+            task->wait_ticks--;
+            if (task->wait_ticks == 0) {
+                task->state = READY;
+                SchedulingRequired();
+            }
+        }
+    }
+
     SchedulingRequired();
 }
 
@@ -300,22 +321,44 @@ void SysTick_Handler(void)
     TickEvent();
 }
 
+void SVC_Handler(uint32_t service, uint32_t data)
+{
+    switch (service) {
+    case SERVICE_DELAY:
+        kernel->active_task->state = WAITING;
+        kernel->active_task->wait_ticks = data;
+        break;
+    default:
+        break;
+    }
+    SchedulingRequired();
+}
+
 __attribute__((naked())) void PendSV_Handler(void)
 {
     /* Si hay una tarea activa se salva el contexto en su correspondiente pila */
-    if (kernel->tasks[kernel->active_task].state == RUNNING) {
-        kernel->tasks[kernel->active_task].state = READY;
+    if ((kernel->active_task) && (kernel->active_task->state != CREATING)) {
+        if (kernel->active_task->state == RUNNING) {
+            kernel->active_task->state = READY;
+        }
         __asm__ volatile("mrs r0, psp");
         __asm__ volatile("stmdb r0!, {r4-r11,lr}");
-        __asm__ volatile("str r0, %0" : "=m"(kernel->tasks[kernel->active_task].stack_pointer));
+        __asm__ volatile("str r0, %0" : "=m"(kernel->active_task->stack_pointer));
     }
 
     /* Se determina seleciona la proxima tarea que utilizará el procesador */
     Schedule();
-    kernel->tasks[kernel->active_task].state = RUNNING;
+    kernel->active_task->state = RUNNING;
 
     /*  Se devuelve el uso del procesador a la tarea designada */
-    RetoreContext(kernel->tasks[kernel->active_task].stack_pointer);
+    RetoreContext(kernel->active_task->stack_pointer);
+}
+
+void WaitDelay(uint32_t delay)
+{
+    __asm__ volatile("mov r1, r0");
+    __asm__ volatile("mov r0, %0" : : "I"(SERVICE_DELAY));
+    __asm__ volatile("svc #0");
 }
 
 /* === Ciere de documentacion ================================================================== */

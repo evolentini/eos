@@ -41,6 +41,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   3 | 2021.08.07 | evolentini      | Se agrega un servicio de espera pasiva                  |
  **|   2 | 2021.07.25 | evolentini      | Se agrega un puntero que permite parametrizar la tarea  |
  **|   1 | 2021.07.25 | evolentini      | Version inicial del archivo                             |
  **
@@ -49,6 +50,8 @@
  ** @{ */
 
 /* === Inclusiones de archivos externos ======================================================== */
+
+#include <stdint.h>
 
 /* === Cabecera C++ ============================================================================ */
 #ifdef __cplusplus
@@ -63,6 +66,11 @@ extern "C" {
  * @brief Tipo de datos con un puntero a una funcion que implementa una tarea
  */
 typedef void (*task_entry_point_t)(void* data);
+
+/**
+ * @brief Tipo de datos con un puntero a un descriptor de tarea
+ */
+typedef struct task_s* task_t;
 
 /* === Declaraciones de variables externas ===================================================== */
 
@@ -80,6 +88,8 @@ void TaskCreate(task_entry_point_t entry_point, void* data);
  * @brief Función para iniciar el planificador del sistema operativo
  */
 void StartScheduler(void);
+
+void WaitDelay(uint32_t delay);
 
 /* === Ciere de documentacion ================================================================== */
 #ifdef __cplusplus

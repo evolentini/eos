@@ -43,6 +43,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   9 | 2021.08.08 | evolentini      | Se cambia para usar espera pasiva del sistema operativo |
  **|   8 | 2021.07.25 | evolentini      | Se cambia para usar las tareas parametrizadas           |
  **|   7 | 2021.07.25 | evolentini      | Las funciones de tareas se mueven a un archivo separado |
  **|   6 | 2021.07.25 | evolentini      | Se agregan descriptores y estados para las tareas       |
@@ -107,16 +108,6 @@ void TareaB(void* data);
 
 /* === Definiciones de funciones internas ====================================================== */
 
-void Delay(int espera)
-{
-    uint32_t i;
-    while (espera--) {
-        for (i = COUNT_DELAY; i != 0; i--) {
-            __asm__ volatile("nop");
-        }
-    }
-}
-
 void TareaA(void* data)
 {
     (void)data;
@@ -132,7 +123,7 @@ void TareaB(void* data)
     parpadeo_t parametros = data;
     while (1) {
         gpioToggle(parametros->led);
-        Delay(parametros->periodo);
+        WaitDelay(parametros->periodo);
     }
 }
 
@@ -141,8 +132,8 @@ void TareaB(void* data)
 int main(void)
 {
     static const struct parpadeo_s PARAMETROS[] = {
-        { .led = LED1, .periodo = 10 },
-        { .led = LED2, .periodo = 5 },
+        { .led = LED1, .periodo = 2000 },
+        { .led = LED2, .periodo = 1000 },
     };
 
     /* Creación de las tareas */
