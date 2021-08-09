@@ -43,6 +43,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|  10 | 2021.08.08 | evolentini      | Se cambia para crear una tarea desde una tarea          |
  **|   9 | 2021.08.08 | evolentini      | Se cambia para usar espera pasiva del sistema operativo |
  **|   8 | 2021.07.25 | evolentini      | Se cambia para usar las tareas parametrizadas           |
  **|   7 | 2021.07.25 | evolentini      | Las funciones de tareas se mueven a un archivo separado |
@@ -104,6 +105,11 @@ void TareaB(void* data);
 
 /* === Definiciones de variables internas ====================================================== */
 
+static const struct parpadeo_s PARAMETROS[] = {
+    { .led = LED1, .periodo = 2000 },
+    { .led = LED2, .periodo = 1000 },
+};
+
 /* === Definiciones de variables externas ====================================================== */
 
 /* === Definiciones de funciones internas ====================================================== */
@@ -112,6 +118,9 @@ void TareaA(void* data)
 {
     (void)data;
     bool valor;
+
+    TaskCreate(TareaB, (void*)&PARAMETROS[1]);
+
     while (1) {
         valor = !gpioRead(TEC4);
         gpioWrite(LED3, valor);
@@ -131,15 +140,9 @@ void TareaB(void* data)
 
 int main(void)
 {
-    static const struct parpadeo_s PARAMETROS[] = {
-        { .led = LED1, .periodo = 2000 },
-        { .led = LED2, .periodo = 1000 },
-    };
-
     /* Creación de las tareas */
     TaskCreate(TareaA, NULL);
     TaskCreate(TareaB, (void*)&PARAMETROS[0]);
-    TaskCreate(TareaB, (void*)&PARAMETROS[1]);
 
     /* Configuración de los dispositivos de la placa */
     boardConfig();

@@ -1,9 +1,9 @@
-/* Copyright 2016-2021, Laboratorio de Microprocesadores
- * Facultad de Ciencias Exactas y Tecnología
+/* Copyright 2016-2021, Laboratorio de Microprocesadores 
+ * Facultad de Ciencias Exactas y Tecnología 
  * Universidad Nacional de Tucuman
  * http://www.microprocesadores.unt.edu.ar/
  * Copyright 2016-2021, Esteban Volentini <evolentini@herrera.unt.edu.ar>
- *
+ * 
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,26 +33,23 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TAREAS_H
-#define TAREAS_H
+#ifndef PLANTILLA_H
+#define PLANTILLA_H
 
-/** @file tareas.h
- ** @brief Interface publicas para la gestion de tareas
+/** @file eos.h
+ ** @brief Declaraciones publicas del sistema operativo
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
- **|   3 | 2021.08.07 | evolentini      | Se agrega un servicio de espera pasiva                  |
- **|   2 | 2021.07.25 | evolentini      | Se agrega un puntero que permite parametrizar la tarea  |
- **|   1 | 2021.07.25 | evolentini      | Version inicial del archivo                             |
+ **|   1 | 2021.08.08 | evolentini      | Version inicial del archivo                             |
  **
- ** @addtogroup eos
- ** @brief Sistema operativo
+ ** @addtogroup modulo 
+ ** @brief Breve descripción del modulo
  ** @{ */
 
 /* === Inclusiones de archivos externos ======================================================== */
 
-#include "eos.h"
-#include <stdint.h>
+#include <eos_config.h>
 
 /* === Cabecera C++ ============================================================================ */
 #ifdef __cplusplus
@@ -61,36 +58,30 @@ extern "C" {
 
 /* === Definiciones y Macros =================================================================== */
 
+
+/**
+ * @brief Cantidad de máxima de tareas que se podrán crear
+ */
+#ifndef EOS_MAX_TASK_COUNT
+#define EOS_MAX_TASK_COUNT 8
+#elif (EOS_MAX_TASK_COUNT < 2)
+#error "La cantidad minima de tareas del sistema operativo es dos"
+#endif
+
+/**
+ * @brief Cantidad de bytes asignado como pila para cada tarea
+ */
+#ifndef EOS_TASK_STACK_SIZE
+#define EOS_TASK_STACK_SIZE 256
+#elif (EOS_TASK_STACK_SIZE < 128)
+#error "La cantidad minima de byte para asignar a una tarea es de 128 bytes"
+#endif
+
 /* === Declaraciones de tipos de datos ========================================================= */
-
-/**
- * @brief Tipo de datos con un puntero a una funcion que implementa una tarea
- */
-typedef void (*task_entry_point_t)(void* data);
-
-/**
- * @brief Tipo de datos con un puntero a un descriptor de tarea
- */
-typedef struct task_s* task_t;
 
 /* === Declaraciones de variables externas ===================================================== */
 
 /* === Declaraciones de funciones externas ===================================================== */
-
-/**
- * @brief Función para crear una nueva tarea
- *
- * @param[in]  entry_point  Puntero a la función que implementa la tarea
- * @param[in]  data         Puntero al bloque de datos para parametrizar la tarea
- */
-void TaskCreate(task_entry_point_t entry_point, void* data);
-
-/**
- * @brief Función para iniciar el planificador del sistema operativo
- */
-void StartScheduler(void);
-
-void WaitDelay(uint32_t delay);
 
 /* === Ciere de documentacion ================================================================== */
 #ifdef __cplusplus
@@ -99,4 +90,4 @@ void WaitDelay(uint32_t delay);
 
 /** @} Final de la definición del modulo para doxygen */
 
-#endif /* TAREAS_H */
+#endif /* EOS_H */

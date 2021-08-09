@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   7 | 2021.08.08 | evolentini      | Se separa el planificador en un archivo independiente   |
  **|   6 | 2021.08.07 | evolentini      | Se agrega un servicio de espera pasiva                  |
  **|   5 | 2021.07.02 | evolentini      | Se integra todo el estado en la estructura kernel       |
  **|   4 | 2021.07.02 | evolentini      | Se separa el codigo dependiente del procesador          |
@@ -52,21 +53,12 @@
 /* === Inclusiones de cabeceras ================================================================ */
 
 #include "tareas.h"
+#include "planificador.h"
 #include "sapi.h"
 #include <stddef.h>
 #include <stdint.h>
 
 /* === Definiciones y Macros =================================================================== */
-
-/**
- * @brief Cantidad de máxima de tareas que se podrán crear
- */
-#define TASKS_MAX_COUNT 8
-
-/**
- * @brief Cantidad de bytes asignado como pila para cada tarea
- */
-#define TASK_STACK_SIZE 256
 
 #define SERVICE_DELAY 1
 
@@ -99,15 +91,15 @@ typedef struct task_s {
  */
 typedef struct kernel_s {
     //! Vector que almacena los descriptores de tareas
-    struct task_s tasks[TASKS_MAX_COUNT];
+    struct task_s tasks[EOS_MAX_TASK_COUNT];
     //! Vector que proporciona espacio para la pila de las tareas
-    uint8_t task_stacks[TASKS_MAX_COUNT][TASK_STACK_SIZE];
+    uint8_t task_stacks[EOS_MAX_TASK_COUNT][EOS_TASK_STACK_SIZE];
     //! Puntero al descriptor de la tarea en ejecución
     task_t active_task;
     //! Variable con el indice de la ultima tarea creada
     uint8_t last_created;
-    //! Indice de la ultima tarea activa en el arreglo
-    uint8_t last_active;
+    //! Puntero a la instancia del planificador
+    scheduler_t scheduler;
 } * kernel_t;
 
 /**
@@ -177,14 +169,17 @@ __attribute__((naked())) void RetoreContext(void* stack_pointer);
 void SchedulingRequired(void);
 
 /**
- * @brief Función para determinar la tarea a la que se otorga el procesador
- */
-void Schedule(void);
-
-/**
  * @brief Función para implementar el control del tiempos del sistema operativo
  */
 void TickEvent(void);
+
+/**
+ * @brief Función para cambiar el estado de una tarea
+ *
+ * @param   task    Puntero al descriptor de la tarea que se desea cambiar de estado
+ * @param   state   Nuevo estado que se asigna a la tarea
+ */
+void TaskSetState(task_t task, task_state_t state);
 
 /* === Definiciones de variables internas ====================================================== */
 
@@ -208,7 +203,7 @@ task_t AllocateDescriptor(void)
     // Variable con el resultado del descriptor de tarea asignado
     task_t task = NULL;
 
-    if (kernel->last_created < TASKS_MAX_COUNT) {
+    if (kernel->last_created < EOS_MAX_TASK_COUNT) {
         task = &(kernel->tasks[kernel->last_created]);
         (kernel->last_created)++;
     }
@@ -249,14 +244,6 @@ void SchedulingRequired(void)
     SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
 }
 
-void Schedule(void)
-{
-    do {
-        kernel->last_active = (kernel->last_active + 1) % TASKS_MAX_COUNT;
-        kernel->active_task = &(kernel->tasks[kernel->last_active]);
-    } while (kernel->active_task->state != READY);
-}
-
 void TickEvent(void)
 {
     static int divisor = 0;
@@ -264,18 +251,28 @@ void TickEvent(void)
     if (divisor == 0)
         gpioToggle(LEDB);
 
-    for (int index = 0; index < TASKS_MAX_COUNT; index++) {
+    for (int index = 0; index < EOS_MAX_TASK_COUNT; index++) {
         task_t task = &(kernel->tasks[index]);
         if (task->state == WAITING) {
             task->wait_ticks--;
             if (task->wait_ticks == 0) {
-                task->state = READY;
+                TaskSetState(task, READY);
                 SchedulingRequired();
             }
         }
     }
 
     SchedulingRequired();
+}
+
+void TaskSetState(task_t task, task_state_t state)
+{
+    if (task->state != state) {
+        task->state = state;
+        if (task->state == READY && kernel->scheduler) {
+            SchedulerEnqueue(kernel->scheduler, task, 0);
+        }
+    }
 }
 
 /* === Definiciones de funciones externas ====================================================== */
@@ -288,10 +285,10 @@ void TaskCreate(task_entry_point_t entry_point, void* data)
     // Variable con el descriptor signado a la nueva tarea
     task_t task = AllocateDescriptor();
     if (task) {
-        asigned_stack += TASK_STACK_SIZE;
+        asigned_stack += EOS_TASK_STACK_SIZE;
         task->stack_pointer = asigned_stack;
         PrepareContext(task, entry_point, data);
-        task->state = READY;
+        TaskSetState(task, READY);
     }
 }
 
@@ -306,6 +303,14 @@ void StartScheduler(void)
     /* Update priority set by SysTick_Config */
     NVIC_SetPriority(SysTick_IRQn, (1 << __NVIC_PRIO_BITS) - 2);
     NVIC_SetPriority(PendSV_IRQn, (1 << __NVIC_PRIO_BITS) - 1);
+
+    /* Creación del planificador y encolado de las tareas creadas */
+    kernel->scheduler = SchedulerCreate();
+    for (int index = 0; index < EOS_MAX_TASK_COUNT; index++) {
+        if (kernel->tasks[index].state == READY) {
+            SchedulerEnqueue(kernel->scheduler, &(kernel->tasks[index]), 0);
+        }
+    }
 
     __asm__ volatile("cpsie i");
 
@@ -338,17 +343,18 @@ __attribute__((naked())) void PendSV_Handler(void)
 {
     /* Si hay una tarea activa se salva el contexto en su correspondiente pila */
     if ((kernel->active_task) && (kernel->active_task->state != CREATING)) {
-        if (kernel->active_task->state == RUNNING) {
-            kernel->active_task->state = READY;
-        }
         __asm__ volatile("mrs r0, psp");
         __asm__ volatile("stmdb r0!, {r4-r11,lr}");
         __asm__ volatile("str r0, %0" : "=m"(kernel->active_task->stack_pointer));
+
+        if (kernel->active_task->state == RUNNING) {
+            TaskSetState(kernel->active_task, READY);
+        }
     }
 
     /* Se determina seleciona la proxima tarea que utilizará el procesador */
-    Schedule();
-    kernel->active_task->state = RUNNING;
+    kernel->active_task = Schedule(kernel->scheduler);
+    TaskSetState(kernel->active_task, RUNNING);
 
     /*  Se devuelve el uso del procesador a la tarea designada */
     RetoreContext(kernel->active_task->stack_pointer);

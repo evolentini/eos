@@ -33,17 +33,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TAREAS_H
-#define TAREAS_H
+#ifndef EOS_CONFIG_H
+#define EOS_CONFIG_H
 
-/** @file tareas.h
- ** @brief Interface publicas para la gestion de tareas
+/** @file eos_config.h
+ ** @brief Archivo de configuración del sistema operativo
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
- **|   3 | 2021.08.07 | evolentini      | Se agrega un servicio de espera pasiva                  |
- **|   2 | 2021.07.25 | evolentini      | Se agrega un puntero que permite parametrizar la tarea  |
- **|   1 | 2021.07.25 | evolentini      | Version inicial del archivo                             |
+ **|   1 | 2021.08.08 | evolentini      | Version inicial del archivo                             |
  **
  ** @addtogroup eos
  ** @brief Sistema operativo
@@ -51,46 +49,27 @@
 
 /* === Inclusiones de archivos externos ======================================================== */
 
-#include "eos.h"
-#include <stdint.h>
-
 /* === Cabecera C++ ============================================================================ */
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /* === Definiciones y Macros =================================================================== */
+/**
+ * @brief Define la cantidad máxima de tareas que se podrán crear en el sistema operativo
+ */
+#define EOS_MAX_TASK_COUNT 4
+
+/**
+ * @brief Cantidad de bytes asignado como pila para cada tarea
+ */
+#define EOS_TASK_STACK_SIZE 256
 
 /* === Declaraciones de tipos de datos ========================================================= */
-
-/**
- * @brief Tipo de datos con un puntero a una funcion que implementa una tarea
- */
-typedef void (*task_entry_point_t)(void* data);
-
-/**
- * @brief Tipo de datos con un puntero a un descriptor de tarea
- */
-typedef struct task_s* task_t;
 
 /* === Declaraciones de variables externas ===================================================== */
 
 /* === Declaraciones de funciones externas ===================================================== */
-
-/**
- * @brief Función para crear una nueva tarea
- *
- * @param[in]  entry_point  Puntero a la función que implementa la tarea
- * @param[in]  data         Puntero al bloque de datos para parametrizar la tarea
- */
-void TaskCreate(task_entry_point_t entry_point, void* data);
-
-/**
- * @brief Función para iniciar el planificador del sistema operativo
- */
-void StartScheduler(void);
-
-void WaitDelay(uint32_t delay);
 
 /* === Ciere de documentacion ================================================================== */
 #ifdef __cplusplus
@@ -99,4 +78,4 @@ void WaitDelay(uint32_t delay);
 
 /** @} Final de la definición del modulo para doxygen */
 
-#endif /* TAREAS_H */
+#endif /* EOS_CONFIG_H */

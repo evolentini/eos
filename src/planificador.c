@@ -33,70 +33,76 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TAREAS_H
-#define TAREAS_H
-
-/** @file tareas.h
- ** @brief Interface publicas para la gestion de tareas
+/** @file planificador.c
+ ** @brief Implementación del planificador de tareas del sistema operativo
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
- **|   3 | 2021.08.07 | evolentini      | Se agrega un servicio de espera pasiva                  |
- **|   2 | 2021.07.25 | evolentini      | Se agrega un puntero que permite parametrizar la tarea  |
- **|   1 | 2021.07.25 | evolentini      | Version inicial del archivo                             |
+ **|   1 | 2021.08.08 | evolentini      | Version inicial del archivo                             |
  **
  ** @addtogroup eos
  ** @brief Sistema operativo
  ** @{ */
 
-/* === Inclusiones de archivos externos ======================================================== */
+/* === Inclusiones de cabeceras ================================================================ */
 
-#include "eos.h"
-#include <stdint.h>
-
-/* === Cabecera C++ ============================================================================ */
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "planificador.h"
+#include <stddef.h>
 
 /* === Definiciones y Macros =================================================================== */
 
-/* === Declaraciones de tipos de datos ========================================================= */
+/* === Declaraciones de tipos de datos internos ================================================ */
 
-/**
- * @brief Tipo de datos con un puntero a una funcion que implementa una tarea
- */
-typedef void (*task_entry_point_t)(void* data);
+struct scheduler_s {
+    task_t queue[EOS_MAX_TASK_COUNT];
+    task_t active_task;
+};
 
-/**
- * @brief Tipo de datos con un puntero a un descriptor de tarea
- */
-typedef struct task_s* task_t;
+/* === Declaraciones de funciones internas ===================================================== */
 
-/* === Declaraciones de variables externas ===================================================== */
+/* === Definiciones de variables internas ====================================================== */
 
-/* === Declaraciones de funciones externas ===================================================== */
+/* === Definiciones de variables externas ====================================================== */
 
-/**
- * @brief Función para crear una nueva tarea
- *
- * @param[in]  entry_point  Puntero a la función que implementa la tarea
- * @param[in]  data         Puntero al bloque de datos para parametrizar la tarea
- */
-void TaskCreate(task_entry_point_t entry_point, void* data);
+static struct scheduler_s instances[1] = { 0 };
 
-/**
- * @brief Función para iniciar el planificador del sistema operativo
- */
-void StartScheduler(void);
+/* === Definiciones de funciones internas ====================================================== */
 
-void WaitDelay(uint32_t delay);
+/* === Definiciones de funciones externas ====================================================== */
+
+scheduler_t SchedulerCreate(void)
+{
+    // Solo se puede crear una instancia del planificador
+    return instances;
+}
+
+void SchedulerEnqueue(scheduler_t self, task_t task, uint8_t priority)
+{
+    for (int index = 0; index < EOS_MAX_TASK_COUNT; index++) {
+        if (self->queue[index] == NULL) {
+            self->queue[index] = task;
+            break;
+        }
+    }
+}
+
+task_t Schedule(scheduler_t self)
+{
+    self->active_task = self->queue[0];
+
+    for (int index = 0; index < EOS_MAX_TASK_COUNT - 1; index++) {
+        if (self->queue[index + 1] != NULL) {
+            self->queue[index] = self->queue[index + 1];
+        } else {
+            self->queue[index] = NULL;
+            break;
+        }
+    }
+    self->queue[EOS_MAX_TASK_COUNT - 1] = NULL;
+
+    return self->active_task;
+}
 
 /* === Ciere de documentacion ================================================================== */
-#ifdef __cplusplus
-}
-#endif
 
 /** @} Final de la definición del modulo para doxygen */
-
-#endif /* TAREAS_H */

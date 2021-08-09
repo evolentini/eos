@@ -33,17 +33,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TAREAS_H
-#define TAREAS_H
+#ifndef PLANIFICADOR_H
+#define PLANIFICADOR_H
 
-/** @file tareas.h
- ** @brief Interface publicas para la gestion de tareas
+/** @file colas.c
+ ** @brief Declaraciones del planificador de tareas del sistema operativo
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
- **|   3 | 2021.08.07 | evolentini      | Se agrega un servicio de espera pasiva                  |
- **|   2 | 2021.07.25 | evolentini      | Se agrega un puntero que permite parametrizar la tarea  |
- **|   1 | 2021.07.25 | evolentini      | Version inicial del archivo                             |
+ **|   1 | 2021.08.08 | evolentini      | Version inicial del archivo                             |
  **
  ** @addtogroup eos
  ** @brief Sistema operativo
@@ -51,7 +49,8 @@
 
 /* === Inclusiones de archivos externos ======================================================== */
 
-#include "eos.h"
+#include "tareas.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 /* === Cabecera C++ ============================================================================ */
@@ -63,34 +62,34 @@ extern "C" {
 
 /* === Declaraciones de tipos de datos ========================================================= */
 
-/**
- * @brief Tipo de datos con un puntero a una funcion que implementa una tarea
- */
-typedef void (*task_entry_point_t)(void* data);
-
-/**
- * @brief Tipo de datos con un puntero a un descriptor de tarea
- */
-typedef struct task_s* task_t;
+typedef struct scheduler_s* scheduler_t;
 
 /* === Declaraciones de variables externas ===================================================== */
 
 /* === Declaraciones de funciones externas ===================================================== */
 
 /**
- * @brief Función para crear una nueva tarea
- *
- * @param[in]  entry_point  Puntero a la función que implementa la tarea
- * @param[in]  data         Puntero al bloque de datos para parametrizar la tarea
+ * @brief Funcion para crear el planificador del sistema operativo
  */
-void TaskCreate(task_entry_point_t entry_point, void* data);
+scheduler_t SchedulerCreate(void);
 
 /**
- * @brief Función para iniciar el planificador del sistema operativo
+ * @brief Función para agregar una tarea en la cola correspondiente a una prioridad
+ *
+ * @param   scheduler   Puntero a la instancia del planificador
+ * @param   task        Puntero al descriptor de la tarea que se encola
+ * @param   priority    Prioridad de la tarea que se encola
  */
-void StartScheduler(void);
+void SchedulerEnqueue(scheduler_t scheduler, task_t task, uint8_t priority);
 
-void WaitDelay(uint32_t delay);
+/**
+ * @brief Función para determinar la tarea a la que se otorga el procesador
+ *
+ * @param   scheduler   Puntero a la instancia del planificador
+ *
+ * @return  Puntero al descriptor de la tarea al que debe otorgarse el procesador
+ */
+task_t Schedule(scheduler_t scheduler);
 
 /* === Ciere de documentacion ================================================================== */
 #ifdef __cplusplus
@@ -99,4 +98,4 @@ void WaitDelay(uint32_t delay);
 
 /** @} Final de la definición del modulo para doxygen */
 
-#endif /* TAREAS_H */
+#endif /* PLANIFICADOR_H */
