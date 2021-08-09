@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   9 | 2021.08.08 | evolentini      | Se agrega soporte para una tarea inactiva del sistema   |
  **|   8 | 2021.08.08 | evolentini      | Se agrega soporte para prioridades en las tareas        |
  **|   7 | 2021.08.08 | evolentini      | Se separa el planificador en un archivo independiente   |
  **|   6 | 2021.08.07 | evolentini      | Se agrega un servicio de espera pasiva                  |
@@ -93,16 +94,20 @@ typedef struct task_s {
  * @brief Estructura de datos que almacena el estado del nuclo
  */
 typedef struct kernel_s {
+    //! Vector que almacena el descriptor de la tarea inactiva
+    struct task_s background[1];
     //! Vector que almacena los descriptores de tareas
-    struct task_s tasks[EOS_MAX_TASK_COUNT];
+    struct task_s tasks[EOS_MAX_TASK_COUNT][1];
     //! Vector que proporciona espacio para la pila de las tareas
-    uint8_t task_stacks[EOS_MAX_TASK_COUNT][EOS_TASK_STACK_SIZE];
+    uint8_t task_stacks[EOS_MAX_TASK_COUNT + 1][EOS_TASK_STACK_SIZE];
     //! Puntero al descriptor de la tarea en ejecución
     task_t active_task;
     //! Variable con el indice de la ultima tarea creada
     uint8_t last_created;
     //! Puntero a la instancia del planificador
     scheduler_t scheduler;
+    // Variable con la ultima dirección de pila asignada
+    void* asigned_stack;
 } * kernel_t;
 
 /**
@@ -184,6 +189,21 @@ void TickEvent(void);
  */
 void TaskSetState(task_t task, task_state_t state);
 
+/**
+ * @brief Función para asignar la pila a una tarea
+ *
+ * @param   task    Puntero al descriptor de la tarea a la que se asigna la pila
+ * @param   size    Canitdad de bytes que se desean asignar como pila a la tarea
+ */
+void TaskAsignStack(task_t task, uint16_t size);
+
+/**
+ * @brief  Función para implementar la tarea inactiva del sistema
+ *
+ * @param   data    Puntero con los parametros, siempre es NULL para esta tarea
+ */
+void TaskBackground(void* data);
+
 /* === Definiciones de variables internas ====================================================== */
 
 /**
@@ -207,7 +227,7 @@ task_t AllocateDescriptor(void)
     task_t task = NULL;
 
     if (kernel->last_created < EOS_MAX_TASK_COUNT) {
-        task = &(kernel->tasks[kernel->last_created]);
+        task = kernel->tasks[kernel->last_created];
         (kernel->last_created)++;
     }
     return task;
@@ -255,7 +275,7 @@ void TickEvent(void)
         gpioToggle(LEDB);
 
     for (int index = 0; index < EOS_MAX_TASK_COUNT; index++) {
-        task_t task = &(kernel->tasks[index]);
+        task_t task = kernel->tasks[index];
         if (task->state == WAITING) {
             task->wait_ticks--;
             if (task->wait_ticks == 0) {
@@ -271,10 +291,41 @@ void TickEvent(void)
 void TaskSetState(task_t task, task_state_t state)
 {
     if (task->state != state) {
-        task->state = state;
-        if (task->state == READY && kernel->scheduler) {
-            SchedulerEnqueue(kernel->scheduler, task, task->priority);
+        if (task == kernel->background) {
+            if (state == READY || state == RUNNING) {
+                task->state = state;
+            }
+        } else {
+            task->state = state;
+            if (task->state == READY && kernel->scheduler) {
+                SchedulerEnqueue(kernel->scheduler, task, task->priority);
+            }
         }
+    }
+}
+
+void TaskAsignStack(task_t task, uint16_t size)
+{
+    // Se inicializa el puntero la primera vez que se asigna una pila
+    if (kernel->asigned_stack == NULL) {
+        kernel->asigned_stack = kernel->task_stacks;
+    }
+
+    // Se asigna la cantidad de memoria solicitada a la pila de la tarea
+    if (task) {
+        kernel->asigned_stack += size;
+        task->stack_pointer = kernel->asigned_stack;
+    }
+}
+
+void TaskBackground(void* data)
+{
+    /* El puntero a datos no se utiliza en esta tarea */
+    (void)data;
+
+    while (1) {
+        /* Duerme el procesador hasta que llegue una interrupción */
+        __asm__ volatile("wfi");
     }
 }
 
@@ -282,14 +333,11 @@ void TaskSetState(task_t task, task_state_t state)
 
 task_t TaskCreate(task_entry_point_t entry_point, void* data, uint8_t priority)
 {
-    // Variable con la ultima dirección de pila asignada
-    static void* asigned_stack = kernel->task_stacks;
 
     // Variable con el descriptor signado a la nueva tarea
     task_t task = AllocateDescriptor();
     if (task) {
-        asigned_stack += EOS_TASK_STACK_SIZE;
-        task->stack_pointer = asigned_stack;
+        TaskAsignStack(task, EOS_TASK_STACK_SIZE);
         task->priority = priority;
         PrepareContext(task, entry_point, data);
         TaskSetState(task, READY);
@@ -309,10 +357,15 @@ void StartScheduler(void)
     NVIC_SetPriority(SysTick_IRQn, (1 << __NVIC_PRIO_BITS) - 2);
     NVIC_SetPriority(PendSV_IRQn, (1 << __NVIC_PRIO_BITS) - 1);
 
+    /* Creación de la tarea inactiva del sistema */
+    TaskAsignStack(kernel->background, EOS_TASK_STACK_SIZE);
+    PrepareContext(kernel->background, TaskBackground, NULL);
+    TaskSetState(kernel->background, READY);
+
     /* Creación del planificador y encolado de las tareas creadas */
-    kernel->scheduler = SchedulerCreate();
+    kernel->scheduler = SchedulerCreate(kernel->background);
     for (int index = 0; index < EOS_MAX_TASK_COUNT; index++) {
-        task_t task = &(kernel->tasks[index]);
+        task_t task = kernel->tasks[index];
         if (task->state == READY) {
             SchedulerEnqueue(kernel->scheduler, task, task->priority);
         }

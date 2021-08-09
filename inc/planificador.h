@@ -41,6 +41,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   2 | 2021.08.08 | evolentini      | Se agrega soporte para una tarea inactiva del sistema   |
  **|   1 | 2021.08.08 | evolentini      | Version inicial del archivo                             |
  **
  ** @addtogroup eos
@@ -71,7 +72,7 @@ typedef struct scheduler_s* scheduler_t;
 /**
  * @brief Funcion para crear el planificador del sistema operativo
  */
-scheduler_t SchedulerCreate(void);
+scheduler_t SchedulerCreate(task_t background_task);
 
 /**
  * @brief Función para agregar una tarea en la cola correspondiente a una prioridad
