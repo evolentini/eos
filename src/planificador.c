@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   5 | 2021.08.10 | evolentini      | Uso de la lista enlazada de tareas para las colas       |
  **|   4 | 2021.08.09 | evolentini      | Se separan las funciones publicas y privadas del SO     |
  **|   3 | 2021.08.08 | evolentini      | Se agrega soporte para una tarea inactiva del sistema   |
  **|   2 | 2021.08.08 | evolentini      | Se agrega soporte para prioridades en las tareas        |
@@ -58,7 +59,7 @@
 /* === Declaraciones de tipos de datos internos ================================================ */
 
 struct scheduler_s {
-    eos_task_t queue[EOS_MAX_PRIORITY][EOS_MAX_TASK_COUNT];
+    eos_task_t queue[EOS_MAX_PRIORITY];
     eos_task_t active_task;
     eos_task_t background_task;
 };
@@ -90,11 +91,10 @@ void SchedulerEnqueue(scheduler_t self, eos_task_t task, uint8_t priority)
         priority = EOS_MAX_PRIORITY - priority - 1;
     }
 
-    for (int index = 0; index < EOS_MAX_TASK_COUNT; index++) {
-        if (self->queue[priority][index] == NULL) {
-            self->queue[priority][index] = task;
-            break;
-        }
+    if (self->queue[priority] == NULL) {
+        self->queue[priority] = task;
+    } else {
+        TaskEnqueue(self->queue[priority], task);
     }
 }
 
@@ -104,21 +104,11 @@ eos_task_t Schedule(scheduler_t self)
 
     self->active_task = self->background_task;
     for (priority = 0; priority < EOS_MAX_PRIORITY; priority++) {
-        if (self->queue[priority][0] != NULL) {
-            self->active_task = self->queue[priority][0];
+        if (self->queue[priority] != NULL) {
+            self->active_task = self->queue[priority];
+            self->queue[priority] = TaskDequeue(self->queue[priority]);
             break;
         }
-    }
-    if (self->active_task != self->background_task) {
-        for (int index = 0; index < EOS_MAX_TASK_COUNT - 1; index++) {
-            if (self->queue[priority][index + 1] != NULL) {
-                self->queue[priority][index] = self->queue[priority][index + 1];
-            } else {
-                self->queue[priority][index] = NULL;
-                break;
-            }
-        }
-        self->queue[priority][EOS_MAX_TASK_COUNT - 1] = NULL;
     }
 
     return self->active_task;

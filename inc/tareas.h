@@ -41,6 +41,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   7 | 2021.08.10 | evolentini      | Soporte para encolar las tareas con una lista enlazada  |
  **|   6 | 2021.08.09 | evolentini      | Se separan las funciones publicas y privadas del SO     |
  **|   5 | 2021.08.08 | evolentini      | Se agregan notificaciones del sistema al usuario        |
  **|   4 | 2021.08.08 | evolentini      | Se agrega soporte para prioridades en las tareas        |
@@ -107,6 +108,22 @@ void SysTickCallback(void);
  * @brief Función de usuario para notificar la terminación de una tarea
  */
 void EndTaskCallback(eos_task_t task);
+
+/**
+ * @brief Función para encolar una tarea en una cola de tareas
+ *
+ * @param first_task Puntero al descriptor de la primera tarea de la cola
+ * @param last_task Puntero al descriptor de tarea que se agrega al final de la cola
+ */
+void TaskEnqueue(eos_task_t first_task, eos_task_t last_task);
+
+/**
+ * @brief Función para desencolar la primera tarea de una cola de tareas
+ *
+ * @param first_task Puntero al descriptor de la primera tarea de la cola
+ * @return  Puntero al descriptor de la nueva primera tarea de la cola
+ */
+eos_task_t TaskDequeue(eos_task_t first_task);
 
 /* === Ciere de documentacion ================================================================== */
 #ifdef __cplusplus

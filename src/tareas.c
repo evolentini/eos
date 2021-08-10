@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|  12 | 2021.08.10 | evolentini      | Soporte para encolar las tareas con una lista enlazada  |
  **|  11 | 2021.08.09 | evolentini      | Se separan las funciones publicas y privadas del SO     |
  **|  10 | 2021.08.08 | evolentini      | Se agregan notificaciones del sistema al usuario        |
  **|   9 | 2021.08.08 | evolentini      | Se agrega soporte para una tarea inactiva del sistema   |
@@ -348,6 +349,22 @@ eos_task_t TaskCreate(eos_task_entry_point_t entry_point, void* data, uint8_t pr
         PrepareContext(task, entry_point, data);
         TaskSetState(task, READY);
     }
+    return task;
+}
+
+void TaskEnqueue(eos_task_t first_task, eos_task_t last_task)
+{
+    eos_task_t task = first_task;
+    while (task->next_task != NULL) {
+        task = task->next_task;
+    }
+    task->next_task = last_task;
+}
+
+eos_task_t TaskDequeue(eos_task_t first_task)
+{
+    eos_task_t task = first_task->next_task;
+    first_task->next_task = NULL;
     return task;
 }
 

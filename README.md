@@ -32,4 +32,4 @@ Este proyecto está desarrollado dentro del entorno del proyecto (CIAA)[www.proy
 
 ## En este release
 
-En esta versión del proyecto separan las funciones publicas y privadas del sistema operativo. Ahora el programador solo necesita incluir la cabecera `eos.h` para acceder a toda la *api* del sistema operativo y todas las funciones publicas comienzan con el prefijo *Eos*
+En esta versión del proyecto se cambia la implemntación de la cola de prioridades del planificador y se utiliza una lista enlazada donde cada tarea puede contener un puntero a la siguiente tarea en la cola.
