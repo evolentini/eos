@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|  11 | 2021.08.09 | evolentini      | Se separan las funciones publicas y privadas del SO     |
  **|  10 | 2021.08.08 | evolentini      | Se agregan notificaciones del sistema al usuario        |
  **|   9 | 2021.08.08 | evolentini      | Se agrega soporte para una tarea inactiva del sistema   |
  **|   8 | 2021.08.08 | evolentini      | Se agrega soporte para prioridades en las tareas        |
@@ -63,46 +64,44 @@
 
 /* === Definiciones y Macros =================================================================== */
 
-#define SERVICE_DELAY 1
-
 /* === Declaraciones de tipos de datos internos ================================================ */
 
 /**
  * @brief Tipo de datos enumerado con los estados de las tareas
  */
-typedef enum task_state_e {
+typedef enum eos_task_state_e {
     CREATING = 0,
     READY,
     WAITING,
     RUNNING,
-} task_state_t;
+} eos_task_state_t;
 
 /**
  * @brief Estructura que almacena el descriptor de una tarea
  */
-typedef struct task_s {
+typedef struct eos_task_s {
     //! Estado actual de la tarea
-    task_state_t state;
+    eos_task_state_t state;
     //! Copia del puntero de pila de la tarea
     void* stack_pointer;
     //! Cantidad de ticks para terminar la espera
     uint32_t wait_ticks;
     //! Prioridad actual de la tarea
     uint8_t priority;
-} * task_t;
+} * eos_task_t;
 
 /**
  * @brief Estructura de datos que almacena el estado del nuclo
  */
 typedef struct kernel_s {
     //! Vector que almacena el descriptor de la tarea inactiva
-    struct task_s background[1];
+    struct eos_task_s background[1];
     //! Vector que almacena los descriptores de tareas
-    struct task_s tasks[EOS_MAX_TASK_COUNT][1];
+    struct eos_task_s tasks[EOS_MAX_TASK_COUNT][1];
     //! Vector que proporciona espacio para la pila de las tareas
-    uint8_t task_stacks[EOS_MAX_TASK_COUNT + 1][EOS_TASK_STACK_SIZE];
+    uint8_t eos_task_stacks[EOS_MAX_TASK_COUNT + 1][EOS_TASK_STACK_SIZE];
     //! Puntero al descriptor de la tarea en ejecución
-    task_t active_task;
+    eos_task_t active_task;
     //! Variable con el indice de la ultima tarea creada
     uint8_t last_created;
     //! Puntero a la instancia del planificador
@@ -114,9 +113,9 @@ typedef struct kernel_s {
 /**
  * @brief Estructura con los registros del contexto de la tarea almacenados en la pila
  */
-typedef struct task_context_s {
+typedef struct eos_task_context_s {
     //! Contexto almacenado manualmente en el cambio de contexto
-    struct task_context_manual_s {
+    struct eos_task_context_manual_s {
         uint32_t r4;
         uint32_t r5;
         uint32_t r6;
@@ -128,7 +127,7 @@ typedef struct task_context_s {
         uint32_t lr;
     } context_manual;
     //! Contexto almacenado automaticamente por la excepción
-    struct task_context_auto_s {
+    struct eos_task_context_auto_s {
         uint32_t r0;
         uint32_t r1;
         uint32_t r2;
@@ -138,7 +137,7 @@ typedef struct task_context_s {
         uint32_t pc;
         uint32_t xPSR;
     } context_auto;
-} * task_context_t;
+} * eos_task_context_t;
 
 /* === Declaraciones de funciones internas ===================================================== */
 
@@ -154,7 +153,7 @@ void TaskError(void);
  * @brief Busca y asigna un desciptor para una nueva tarea
  *
  */
-task_t AllocateDescriptor(void);
+static eos_task_t AllocateDescriptor(void);
 
 /**
  * @brief Función para preparar el contexto inicial de una tarea nueva
@@ -163,7 +162,7 @@ task_t AllocateDescriptor(void);
  * @param[in]  entry_point  Punto de entrada de la función que imeplementa la tarea
  * @param[in]  data         Puntero al bloque de datos para parametrizar la tarea
  */
-void PrepareContext(task_t task, task_entry_point_t entry_point, void* data);
+void PrepareContext(eos_task_t task, eos_task_entry_point_t entry_point, void* data);
 
 /**
  * @brief Función para recuperar el contexto de una tarea y cederle el procesador
@@ -188,7 +187,7 @@ void TickEvent(void);
  * @param   task    Puntero al descriptor de la tarea que se desea cambiar de estado
  * @param   state   Nuevo estado que se asigna a la tarea
  */
-void TaskSetState(task_t task, task_state_t state);
+void TaskSetState(eos_task_t task, eos_task_state_t state);
 
 /**
  * @brief Función para asignar la pila a una tarea
@@ -196,7 +195,7 @@ void TaskSetState(task_t task, task_state_t state);
  * @param   task    Puntero al descriptor de la tarea a la que se asigna la pila
  * @param   size    Canitdad de bytes que se desean asignar como pila a la tarea
  */
-void TaskAsignStack(task_t task, uint16_t size);
+void TaskAsignStack(eos_task_t task, uint16_t size);
 
 /**
  * @brief  Función para implementar la tarea inactiva del sistema
@@ -222,10 +221,10 @@ void TaskError(void)
     TaskSetState(kernel->active_task, CREATING);
 }
 
-task_t AllocateDescriptor(void)
+static eos_task_t AllocateDescriptor(void)
 {
     // Variable con el resultado del descriptor de tarea asignado
-    task_t task = NULL;
+    eos_task_t task = NULL;
 
     if (kernel->last_created < EOS_MAX_TASK_COUNT) {
         task = kernel->tasks[kernel->last_created];
@@ -234,11 +233,11 @@ task_t AllocateDescriptor(void)
     return task;
 }
 
-void PrepareContext(task_t task, task_entry_point_t entry_point, void* data)
+void PrepareContext(eos_task_t task, eos_task_entry_point_t entry_point, void* data)
 {
-    task->stack_pointer -= sizeof(struct task_context_s);
+    task->stack_pointer -= sizeof(struct eos_task_context_s);
 
-    task_context_t context = task->stack_pointer;
+    eos_task_context_t context = task->stack_pointer;
     context->context_auto.lr = (uint32_t)TaskError;
     context->context_auto.xPSR = 0x21000000;
     context->context_auto.pc = (uint32_t)entry_point;
@@ -248,7 +247,6 @@ void PrepareContext(task_t task, task_entry_point_t entry_point, void* data)
 
 __attribute__((naked())) void RetoreContext(void* stack_pointer)
 {
-    __asm__ volatile("cpsid i");
     /* Se recupera el contexto de la tarea a ejecutar desde su correspondiente pila */
     __asm__ volatile("ldmia r0!, {r4-r11,lr}");
     __asm__ volatile("msr psp, r0");
@@ -275,7 +273,7 @@ void SchedulingRequired(void)
 void TickEvent(void)
 {
     for (int index = 0; index < EOS_MAX_TASK_COUNT; index++) {
-        task_t task = kernel->tasks[index];
+        eos_task_t task = kernel->tasks[index];
         if (task->state == WAITING) {
             task->wait_ticks--;
             if (task->wait_ticks == 0) {
@@ -287,7 +285,7 @@ void TickEvent(void)
     SysTickCallback();
 }
 
-void TaskSetState(task_t task, task_state_t state)
+void TaskSetState(eos_task_t task, eos_task_state_t state)
 {
     if (task->state != state) {
         if (task == kernel->background) {
@@ -303,11 +301,11 @@ void TaskSetState(task_t task, task_state_t state)
     }
 }
 
-void TaskAsignStack(task_t task, uint16_t size)
+void TaskAsignStack(eos_task_t task, uint16_t size)
 {
     // Se inicializa el puntero la primera vez que se asigna una pila
     if (kernel->asigned_stack == NULL) {
-        kernel->asigned_stack = kernel->task_stacks;
+        kernel->asigned_stack = kernel->eos_task_stacks;
     }
 
     // Se asigna la cantidad de memoria solicitada a la pila de la tarea
@@ -327,7 +325,7 @@ void TaskBackground(void* data)
     }
 }
 
-__attribute__((weak())) void EndTaskCallback(task_t task) { }
+__attribute__((weak())) void EndTaskCallback(eos_task_t task) { }
 
 __attribute__((weak())) void SysTickCallback(void) { }
 
@@ -339,11 +337,11 @@ __attribute__((weak())) void InactiveCallback(void)
 
 /* === Definiciones de funciones externas ====================================================== */
 
-task_t TaskCreate(task_entry_point_t entry_point, void* data, uint8_t priority)
+eos_task_t TaskCreate(eos_task_entry_point_t entry_point, void* data, uint8_t priority)
 {
 
     // Variable con el descriptor signado a la nueva tarea
-    task_t task = AllocateDescriptor();
+    eos_task_t task = AllocateDescriptor();
     if (task) {
         TaskAsignStack(task, EOS_TASK_STACK_SIZE);
         task->priority = priority;
@@ -373,7 +371,7 @@ void StartScheduler(void)
     /* Creación del planificador y encolado de las tareas creadas */
     kernel->scheduler = SchedulerCreate(kernel->background);
     for (int index = 0; index < EOS_MAX_TASK_COUNT; index++) {
-        task_t task = kernel->tasks[index];
+        eos_task_t task = kernel->tasks[index];
         if (task->state == READY) {
             SchedulerEnqueue(kernel->scheduler, task, task->priority);
         }
@@ -397,7 +395,7 @@ void SysTick_Handler(void)
 void SVC_Handler(uint32_t service, uint32_t data)
 {
     switch (service) {
-    case SERVICE_DELAY:
+    case EOS_SERVICE_DELAY:
         kernel->active_task->state = WAITING;
         kernel->active_task->wait_ticks = data;
         break;
@@ -415,7 +413,6 @@ __attribute__((naked())) void PendSV_Handler(void)
         __asm__ volatile("mrs r0, psp");
         __asm__ volatile("stmdb r0!, {r4-r11,lr}");
         __asm__ volatile("str r0, %0" : "=m"(kernel->active_task->stack_pointer));
-        __asm__ volatile("cpsie i");
 
         if (kernel->active_task->state == RUNNING) {
             TaskSetState(kernel->active_task, READY);
@@ -428,13 +425,6 @@ __attribute__((naked())) void PendSV_Handler(void)
 
     /*  Se devuelve el uso del procesador a la tarea designada */
     RetoreContext(kernel->active_task->stack_pointer);
-}
-
-void WaitDelay(uint32_t delay)
-{
-    __asm__ volatile("mov r1, r0");
-    __asm__ volatile("mov r0, %0" : : "I"(SERVICE_DELAY));
-    __asm__ volatile("svc #0");
 }
 
 /* === Ciere de documentacion ================================================================== */

@@ -33,14 +33,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PLANTILLA_H
-#define PLANTILLA_H
+#ifndef EOS_H
+#define EOS_H
 
 /** @file eos.h
  ** @brief Declaraciones publicas del sistema operativo
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   3 | 2021.08.09 | evolentini      | Se separan las funciones publicas y privadas del SO     |
  **|   2 | 2021.08.08 | evolentini      | Se agrega la cantidad de pioridades del sistema         |
  **|   1 | 2021.08.08 | evolentini      | Version inicial del archivo                             |
  **
@@ -51,6 +52,7 @@
 /* === Inclusiones de archivos externos ======================================================== */
 
 #include <eos_config.h>
+#include <eos_api.h>
 
 /* === Cabecera C++ ============================================================================ */
 #ifdef __cplusplus
@@ -84,7 +86,7 @@ extern "C" {
 #ifndef EOS_MAX_PRIORITY
 #define EOS_MAX_PRIORITY 4
 #elif (EOS_MAX_PRIORITY < 0 || EOS_MAX_PRIORITY > 16)
-#error "La maxima prioridad de las tareas debe ser mayor que 0 y menor que 16"
+#error "La maxima prioridad de las tareas debe ser mayor o igual que 0 y menor que 16"
 #endif
 
 /* === Declaraciones de tipos de datos ========================================================= */

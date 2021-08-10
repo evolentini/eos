@@ -36,11 +36,12 @@
 #ifndef PLANIFICADOR_H
 #define PLANIFICADOR_H
 
-/** @file colas.c
- ** @brief Declaraciones del planificador de tareas del sistema operativo
+/** @file planificador.h
+ ** @brief Declaraciones privadas del sistema operativo para el planificador de tareas
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   3 | 2021.08.09 | evolentini      | Se separan las funciones publicas y privadas del SO     |
  **|   2 | 2021.08.08 | evolentini      | Se agrega soporte para una tarea inactiva del sistema   |
  **|   1 | 2021.08.08 | evolentini      | Version inicial del archivo                             |
  **
@@ -72,7 +73,7 @@ typedef struct scheduler_s* scheduler_t;
 /**
  * @brief Funcion para crear el planificador del sistema operativo
  */
-scheduler_t SchedulerCreate(task_t background_task);
+scheduler_t SchedulerCreate(eos_task_t background_task);
 
 /**
  * @brief Función para agregar una tarea en la cola correspondiente a una prioridad
@@ -81,7 +82,7 @@ scheduler_t SchedulerCreate(task_t background_task);
  * @param   task        Puntero al descriptor de la tarea que se encola
  * @param   priority    Prioridad de la tarea que se encola
  */
-void SchedulerEnqueue(scheduler_t scheduler, task_t task, uint8_t priority);
+void SchedulerEnqueue(scheduler_t scheduler, eos_task_t task, uint8_t priority);
 
 /**
  * @brief Función para determinar la tarea a la que se otorga el procesador
@@ -90,7 +91,7 @@ void SchedulerEnqueue(scheduler_t scheduler, task_t task, uint8_t priority);
  *
  * @return  Puntero al descriptor de la tarea al que debe otorgarse el procesador
  */
-task_t Schedule(scheduler_t scheduler);
+eos_task_t Schedule(scheduler_t scheduler);
 
 /* === Ciere de documentacion ================================================================== */
 #ifdef __cplusplus

@@ -32,4 +32,4 @@ Este proyecto está desarrollado dentro del entorno del proyecto (CIAA)[www.proy
 
 ## En este release
 
-En esta versión del proyecto se agrego soporte para una tarea inactiva a la que se cede el procesador cuando no hay ninguna otra tarea para ejecutar. Se agregaron ademas tres notificación del sistema operativo al usuario para recibir eventos en cada SysTick del reloj, cuando se ejecuta la tarea iactiva del sistema y cuando una tarea termina.
+En esta versión del proyecto separan las funciones publicas y privadas del sistema operativo. Ahora el programador solo necesita incluir la cabecera `eos.h` para acceder a toda la *api* del sistema operativo y todas las funciones publicas comienzan con el prefijo *Eos*

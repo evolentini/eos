@@ -33,14 +33,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** @file planificador.c
- ** @brief Implementación del planificador de tareas del sistema operativo
+/** @file eos_api.c
+ ** @brief Implementación de las funciones publicas del sistema operativo
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
- **|   4 | 2021.08.09 | evolentini      | Se separan las funciones publicas y privadas del SO     |
- **|   3 | 2021.08.08 | evolentini      | Se agrega soporte para una tarea inactiva del sistema   |
- **|   2 | 2021.08.08 | evolentini      | Se agrega soporte para prioridades en las tareas        |
  **|   1 | 2021.08.08 | evolentini      | Version inicial del archivo                             |
  **
  ** @addtogroup eos
@@ -49,7 +46,7 @@
 
 /* === Inclusiones de cabeceras ================================================================ */
 
-#include "planificador.h"
+#include "semaforos.h"
 #include "tareas.h"
 #include <stddef.h>
 
@@ -57,71 +54,32 @@
 
 /* === Declaraciones de tipos de datos internos ================================================ */
 
-struct scheduler_s {
-    eos_task_t queue[EOS_MAX_PRIORITY][EOS_MAX_TASK_COUNT];
-    eos_task_t active_task;
-    eos_task_t background_task;
-};
-
 /* === Declaraciones de funciones internas ===================================================== */
 
 /* === Definiciones de variables internas ====================================================== */
 
 /* === Definiciones de variables externas ====================================================== */
 
-static struct scheduler_s instances[1] = { 0 };
-
 /* === Definiciones de funciones internas ====================================================== */
 
 /* === Definiciones de funciones externas ====================================================== */
-
-scheduler_t SchedulerCreate(eos_task_t background_task)
+eos_task_t EosTaskCreate(eos_task_entry_point_t entry_point, void* data, uint8_t priority)
 {
-    // Solo se puede crear una instancia del planificador
-    instances->background_task = background_task;
-    return instances;
+    // Llama a la función privada para crear una tarea
+    return TaskCreate(entry_point, data, priority);
 }
 
-void SchedulerEnqueue(scheduler_t self, eos_task_t task, uint8_t priority)
+void EosStartScheduler(void)
 {
-    if (priority >= EOS_MAX_PRIORITY) {
-        priority = 0;
-    } else {
-        priority = EOS_MAX_PRIORITY - priority - 1;
-    }
-
-    for (int index = 0; index < EOS_MAX_TASK_COUNT; index++) {
-        if (self->queue[priority][index] == NULL) {
-            self->queue[priority][index] = task;
-            break;
-        }
-    }
+    // Llama a la función privada para iniciar el planificador
+    StartScheduler();
 }
 
-eos_task_t Schedule(scheduler_t self)
+void EosWaitDelay(uint32_t delay)
 {
-    uint8_t priority;
-
-    self->active_task = self->background_task;
-    for (priority = 0; priority < EOS_MAX_PRIORITY; priority++) {
-        if (self->queue[priority][0] != NULL) {
-            self->active_task = self->queue[priority][0];
-            break;
-        }
-    }
-    if (self->active_task != self->background_task) {
-        for (int index = 0; index < EOS_MAX_TASK_COUNT - 1; index++) {
-            if (self->queue[priority][index + 1] != NULL) {
-                self->queue[priority][index] = self->queue[priority][index + 1];
-            } else {
-                self->queue[priority][index] = NULL;
-                break;
-            }
-        }
-        self->queue[priority][EOS_MAX_TASK_COUNT - 1] = NULL;
-    }
-
-    return self->active_task;
+    __asm__ volatile("mov r1, r0");
+    __asm__ volatile("mov r0, %0" : : "I"(EOS_SERVICE_DELAY));
+    __asm__ volatile("svc #0");
 }
 
 /* === Ciere de documentacion ================================================================== */

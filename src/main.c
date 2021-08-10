@@ -36,13 +36,9 @@
 /** @file main.c
  ** @brief Ejemplo de un cambio de contexto expropiativo
  **
- ** Ejemplo de la implementación básica de la ejecución de dos tareas con un planificador muy
- ** elemental tipo round robin. Se imeplementa un cambio de contexto expropiativo basado en
- ** la rutina de servicio de la interrupción del temporizador del sistema. Esta misma
- ** interrupción se utiliza para asignar las cuotas de tiempo de cada proceso.
- **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|  13 | 2021.08.09 | evolentini      | Se utilizan solo las funciones publicas del SO          |
  **|  12 | 2021.08.08 | evolentini      | Se cambia para utilizar las notificaciones del sistema  |
  **|  11 | 2021.08.08 | evolentini      | Se cambia para crear tareas con diferentes prioridades  |
  **|  10 | 2021.08.08 | evolentini      | Se cambia para crear una tarea desde una tarea          |
@@ -62,8 +58,8 @@
 
 /* === Inclusiones de cabeceras ================================================================ */
 
+#include "eos.h"
 #include "sapi.h"
-#include "tareas.h"
 #include <stdint.h>
 #include <string.h>
 
@@ -158,7 +154,7 @@ void SysTickCallback(void)
  *
  * @param task Puntero al descriptor de la tarea que termina
  */
-void EndTaskCallback(task_t task)
+void EndTaskCallback(eos_task_t task)
 {
     // Enciende un led de error
     gpioToggle(LEDR);
@@ -174,12 +170,12 @@ void TareaA(void* data)
     (void)data;
     bool valor;
 
-    TaskCreate(TareaB, (void*)&PARAMETROS[1], 1);
+    EosTaskCreate(TareaB, (void*)&PARAMETROS[1], 1);
 
     while (1) {
         valor = !gpioRead(TEC4);
         gpioWrite(LED3, valor);
-        WaitDelay(100);
+        EosWaitDelay(100);
     }
 }
 
@@ -195,7 +191,7 @@ void TareaB(void* data)
     parpadeo_t parametros = data;
     while (1) {
         gpioToggle(parametros->led);
-        WaitDelay(parametros->periodo);
+        EosWaitDelay(parametros->periodo);
 
         // Bloque de codigo para matar una de las tareas
         if (parametros->led == LED1) {
@@ -212,14 +208,14 @@ void TareaB(void* data)
 int main(void)
 {
     /* Creación de las tareas */
-    TaskCreate(TareaA, NULL, 0);
-    TaskCreate(TareaB, (void*)&PARAMETROS[0], 1);
+    EosTaskCreate(TareaA, NULL, 0);
+    EosTaskCreate(TareaB, (void*)&PARAMETROS[0], 1);
 
     /* Configuración de los dispositivos de la placa */
     boardConfig();
 
     /* Arranque del sistemaoperativo */
-    StartScheduler();
+    EosStartScheduler();
 
     return 0;
 }

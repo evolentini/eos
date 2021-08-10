@@ -1,9 +1,9 @@
-/* Copyright 2016-2021, Laboratorio de Microprocesadores
- * Facultad de Ciencias Exactas y Tecnología
+/* Copyright 2016-2021, Laboratorio de Microprocesadores 
+ * Facultad de Ciencias Exactas y Tecnología 
  * Universidad Nacional de Tucuman
  * http://www.microprocesadores.unt.edu.ar/
  * Copyright 2016-2021, Esteban Volentini <evolentini@herrera.unt.edu.ar>
- *
+ * 
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,28 +33,23 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TAREAS_H
-#define TAREAS_H
+#ifndef EOS_API_H
+#define EOS_API_H
 
-/** @file tareas.h
- ** @brief Declaraciones privadas del sistema operativo para la gestion de tareas
+/** @file eos_api.h
+ ** @brief Declaraciones de las funciones publicas del sistema operativo
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
- **|   6 | 2021.08.09 | evolentini      | Se separan las funciones publicas y privadas del SO     |
- **|   5 | 2021.08.08 | evolentini      | Se agregan notificaciones del sistema al usuario        |
- **|   4 | 2021.08.08 | evolentini      | Se agrega soporte para prioridades en las tareas        |
- **|   3 | 2021.08.07 | evolentini      | Se agrega un servicio de espera pasiva                  |
- **|   2 | 2021.07.25 | evolentini      | Se agrega un puntero que permite parametrizar la tarea  |
- **|   1 | 2021.07.25 | evolentini      | Version inicial del archivo                             |
+ **|   1 | 2021.08.09 | evolentini      | Version inicial del archivo                             |
  **
- ** @addtogroup eos
- ** @brief Sistema operativo
+ ** @addtogroup modulo 
+ ** @brief Breve descripción del modulo
  ** @{ */
 
 /* === Inclusiones de archivos externos ======================================================== */
 
-#include "eos.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 /* === Cabecera C++ ============================================================================ */
@@ -66,6 +61,20 @@ extern "C" {
 
 /* === Declaraciones de tipos de datos ========================================================= */
 
+typedef enum {
+    EOS_SERVICE_DELAY = 1,
+} eos_services_t;
+
+/**
+ * @brief Tipo de datos con un puntero a una funcion que implementa una tarea
+ */
+typedef void (*eos_task_entry_point_t)(void* data);
+
+/**
+ * @brief Tipo de datos con un puntero a un descriptor de tarea
+ */
+typedef struct eos_task_s* eos_task_t;
+
 /* === Declaraciones de variables externas ===================================================== */
 
 /* === Declaraciones de funciones externas ===================================================== */
@@ -76,37 +85,22 @@ extern "C" {
  * @param[in]  entry_point  Puntero a la función que implementa la tarea
  * @param[in]  data         Puntero al bloque de datos para parametrizar la tarea
  * @param[in]  priority     Prioridad de la tarea que se desea crear
- *
+ *  
  * @return                  Puntero al descriptor de la tarea creada
  */
-eos_task_t TaskCreate(eos_task_entry_point_t entry_point, void* data, uint8_t priority);
+eos_task_t EosTaskCreate(eos_task_entry_point_t entry_point, void* data, uint8_t priority);
 
 /**
  * @brief Función para iniciar el planificador del sistema operativo
  */
-void StartScheduler(void);
+void EosStartScheduler(void);
 
 /**
- * @brief Función de usuario para ejecutar cuando el sistema se encuentra inactivo
+ * @brief Función para esperar una cantidad de tiempo sin utilizar el procesador
  *
- * @remarks Esta función se ejecuta solo cuando el planificador no puede asignar el procesador
- * a ninguna otra tarea. Esta tarea función no debería terminar nunca y no puede utilizar ningun
- * servicio del sistema operativo ya que siempre debe permanecer en estado READY.
+ * @param[in]  delay        Cantidad de tiempo en milisegundos que espera la tarea
  */
-void InactiveCallback(void);
-
-/**
- * @brief Función de usuario para ejecutar en cada interrupcion del temporizador del sistema
- *
- * @remarks Esta función se ejecuta en modo privilegiado y en el contexto del sistema operativo
- * por lo que no se recomienda su utilización.
- */
-void SysTickCallback(void);
-
-/**
- * @brief Función de usuario para notificar la terminación de una tarea
- */
-void EndTaskCallback(eos_task_t task);
+void EosWaitDelay(uint32_t delay);
 
 /* === Ciere de documentacion ================================================================== */
 #ifdef __cplusplus
@@ -115,4 +109,4 @@ void EndTaskCallback(eos_task_t task);
 
 /** @} Final de la definición del modulo para doxygen */
 
-#endif /* TAREAS_H */
+#endif /* EOS_API_H */
