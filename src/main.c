@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|  14 | 2021.08.14 | evolentini      | Se agrega un ejemplo de uso de las colas de datos       |
  **|  14 | 2021.08.09 | evolentini      | Se agrega un ejemplo de uso de un semaforo              |
  **|  13 | 2021.08.09 | evolentini      | Se utilizan solo las funciones publicas del SO          |
  **|  12 | 2021.08.08 | evolentini      | Se cambia para utilizar las notificaciones del sistema  |
@@ -66,15 +67,22 @@
 
 /* === Definiciones y Macros =================================================================== */
 
-/**
- * @brief Valor del contador para la demora en el parpadeo del led
- */
+//! Valor del contador para la demora en el parpadeo del led
 #define COUNT_DELAY 300000
+
+//! Cantidad máxima de elementos en la cola de datos
+#define QUEUE_SIZE 4
+
+//! Macro paradefinir un parametro como no utilizado
+#define UNUSED(x) (void)(x)
 
 /* === Declaraciones de tipos de datos internos ================================================ */
 
+//! Estrcutura de datos con un led y un tiempo
 typedef struct parpadeo_s {
+    //! Led sobre el que se debe operar
     gpioMap_t led;
+    //! Periodo de tiempo que debe permanecer encedido
     int periodo;
 } * parpadeo_t;
 
@@ -93,23 +101,35 @@ void Delay(int espera);
  *
  * @param[in] data  Puntero al bloque de datos para parametrizar la tarea
  */
-void TareaA(void* data);
+void Parpadeo(void* data);
 
 /**
  * @brief Función que implementa la segunda tarea del sistema
  *
  * @param[in] data  Puntero al bloque de datos para parametrizar la tarea
  */
-void TareaB(void* data);
+void Teclado(void* data);
+
+/**
+ * @brief Función que implementa la tercera tarea del sistema
+ *
+ * @param[in] data  Puntero al bloque de datos para parametrizar la tarea
+ */
+void Pantalla(void* data);
 
 /* === Definiciones de variables internas ====================================================== */
 
+//! Constante con los parametros para dos tareas diferentes a partir de la misma funcion
 static const struct parpadeo_s PARAMETROS[] = {
     { .led = LED1, .periodo = 2000 },
     { .led = LED2, .periodo = 1000 },
 };
 
+//! Variable global para almacenar la referencia al descriptor al mutex de los parpadeos
 static eos_semaphore_t mutex;
+
+//! Variable global para almacenar los datos de cola
+static struct parpadeo_s queue_storage[QUEUE_SIZE];
 
 /* === Definiciones de variables externas ====================================================== */
 
@@ -164,21 +184,55 @@ void EndTaskCallback(eos_task_t task)
 }
 
 /**
- * @brief Tarea que prende un led con una tecla
+ * @brief Tarea revisa el teclado y encola mensajes
  *
  * @param data Puntero a los parametros de la tarea
  */
-void TareaA(void* data)
+void Teclado(void* data)
 {
-    (void)data;
-    bool valor;
+    eos_queue_t queue = data;
+    struct parpadeo_s datos[1];
 
-    EosTaskCreate(TareaB, (void*)&PARAMETROS[1], 1);
+    EosTaskCreate(Parpadeo, (void*)&PARAMETROS[1], 1);
 
-    while (1) {
-        valor = !gpioRead(TEC4);
-        gpioWrite(LED3, valor);
-        EosWaitDelay(100);
+    while (true) {
+        datos->led = LED3;
+        datos->periodo = 0;
+        do {
+            if (!gpioRead(TEC3)) {
+                datos->periodo = 500;
+            } else if (!gpioRead(TEC4)) {
+                datos->periodo = 2000;
+            }
+            EosWaitDelay(250);
+        } while (datos->periodo == 0);
+
+        if (datos->periodo) {
+            EosQueueGive(queue, datos);
+        }
+        do {
+            EosWaitDelay(250);
+        } while (!gpioRead(TEC3) || !gpioRead(TEC4));
+    }
+}
+
+/**
+ * @brief Tarea revisa el teclado y encola mensajes
+ *
+ * @param data Puntero a los parametros de la tarea
+ */
+void Pantalla(void* data)
+{
+    eos_queue_t queue = data;
+    struct parpadeo_s datos[1];
+
+    while (true) {
+        EosQueueTake(queue, datos);
+        gpioWrite(datos->led, true);
+        EosWaitDelay(datos->periodo);
+
+        gpioWrite(datos->led, false);
+        EosWaitDelay(datos->periodo);
     }
 }
 
@@ -187,12 +241,10 @@ void TareaA(void* data)
  *
  * @param data Puntero a los parametros de la tarea
  */
-void TareaB(void* data)
+void Parpadeo(void* data)
 {
-    int count = 0;
-
     parpadeo_t parametros = data;
-    while (1) {
+    while (true) {
         EosSemaphoreTake(mutex);
         gpioWrite(parametros->led, true);
         EosWaitDelay(parametros->periodo);
@@ -207,10 +259,19 @@ void TareaB(void* data)
 
 int main(void)
 {
+    /* Variable para almacenar la referencia al descriptor de la cola de datos */
+    eos_queue_t queue;
+
     /* Creación de las tareas */
-    EosTaskCreate(TareaA, NULL, 0);
-    EosTaskCreate(TareaB, (void*)&PARAMETROS[0], 1);
+    queue = EosQueueCreate(&queue_storage, QUEUE_SIZE, sizeof(struct parpadeo_s));
+    EosTaskCreate(Teclado, queue, 0);
+    EosTaskCreate(Pantalla, queue, 0);
+
+    EosTaskCreate(Parpadeo, (void*)&PARAMETROS[0], 1);
+    EosTaskCreate(Parpadeo, (void*)&PARAMETROS[1], 1);
+
     mutex = EosSemaphoreCreate(1);
+
     /* Configuración de los dispositivos de la placa */
     boardConfig();
 

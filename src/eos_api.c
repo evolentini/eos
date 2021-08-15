@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   3 | 2021.08.14 | evolentini      | Se incluyen las funciones para manejo de colas de datos |
  **|   2 | 2021.08.09 | evolentini      | Se incluyen las funciones para manejo de semaforos      |
  **|   1 | 2021.08.08 | evolentini      | Version inicial del archivo                             |
  **
@@ -102,6 +103,25 @@ void EosSemaphoreTake(eos_semaphore_t self)
     __asm__ volatile("mov r0, %0" : : "I"(EOS_SERVICE_TAKE));
     __asm__ volatile("svc #0");
 }
+
+eos_queue_t EosQueueCreate(void* data, uint32_t count, uint32_t size)
+{
+    // Llama a la función privada
+    return QueueCreate(data, count, size);
+}
+
+void EosQueueGive(eos_queue_t queue, void* data)
+{
+    // Llama a la función privada
+    QueueGive(queue, data);
+}
+
+void EosQueueTake(eos_queue_t queue, void* data)
+{
+    // Llama a la función privada
+    QueueTake(queue, data);
+}
+
 /* === Ciere de documentacion ================================================================== */
 
 /** @} Final de la definición del modulo para doxygen */

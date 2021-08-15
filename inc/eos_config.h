@@ -41,6 +41,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   4 | 2021.08.14 | evolentini      | Se incluyen las definiciones para de colas de datos     |
  **|   3 | 2021.08.09 | evolentini      | Se incluyen las definiciones para semaforos             |
  **|   2 | 2021.08.08 | evolentini      | Se agrega la cantidad de pioridades del sistema         |
  **|   1 | 2021.08.08 | evolentini      | Version inicial del archivo                             |
@@ -75,7 +76,12 @@ extern "C" {
 /**
  * @brief Define la cantidad máxima semaforos que se podran crear en el sistema
  */
-#define EOS_MAX_SEMAPHORES 4
+#define EOS_MAX_SEMAPHORES 8
+
+/**
+ * @brief Define la máxima de colas de datos que se podran crear en el sistema
+ */
+#define EOS_MAX_QUEUES 2
 
 /* === Declaraciones de tipos de datos ========================================================= */
 

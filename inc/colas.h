@@ -33,19 +33,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef EOS_H
-#define EOS_H
+#ifndef COLAS_H
+#define COLAS_H
 
-/** @file eos.h
- ** @brief Declaraciones publicas del sistema operativo
+/** @file colas.h
+ ** @brief Declaraciones privadas del sistema operativo para la gestion de colas de datos
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
- **|   5 | 2021.08.14 | evolentini      | Se incluyen las definiciones para de colas de datos     |
- **|   4 | 2021.08.09 | evolentini      | Se incluyen las definiciones para semaforos             |
- **|   3 | 2021.08.09 | evolentini      | Se separan las funciones publicas y privadas del SO     |
- **|   2 | 2021.08.08 | evolentini      | Se agrega la cantidad de pioridades del sistema         |
- **|   1 | 2021.08.08 | evolentini      | Version inicial del archivo                             |
+ **|   1 | 2021.08.14 | evolentini      | Version inicial del archivo                             |
  **
  ** @addtogroup eos
  ** @brief Sistema operativo
@@ -53,8 +49,7 @@
 
 /* === Inclusiones de archivos externos ======================================================== */
 
-#include "eos_config.h"
-#include "eos_api.h"
+#include "eos.h"
 
 /* === Cabecera C++ ============================================================================ */
 #ifdef __cplusplus
@@ -63,58 +58,50 @@ extern "C" {
 
 /* === Definiciones y Macros =================================================================== */
 
-/**
- * @brief Define la cantidad de máxima de tareas que se podrán crear
- */
-#ifndef EOS_MAX_TASK_COUNT
-#define EOS_MAX_TASK_COUNT 8
-#elif (EOS_MAX_TASK_COUNT < 2)
-#error "La cantidad minima de tareas del sistema operativo es dos"
-#endif
-
-/**
- * @brief define la cantidad de bytes asignado como pila para cada tarea
- */
-#ifndef EOS_TASK_STACK_SIZE
-#define EOS_TASK_STACK_SIZE 256
-#elif (EOS_TASK_STACK_SIZE < 128)
-#error "La cantidad mínima de byte para asignar a una tarea es de 128 bytes"
-#endif
-
-/**
- * @brief Define la máxima prioridad que se podrá asignar a una tarea
- */
-#ifndef EOS_MAX_PRIORITY
-#define EOS_MAX_PRIORITY 4
-#elif (EOS_MAX_PRIORITY < 0 || EOS_MAX_PRIORITY > 16)
-#error "La máxima prioridad de las tareas debe ser mayor o igual que 0 y menor que 16"
-#endif
-
-/**
- * @brief Define la cantidad máxima semaforos que se podran crear en el sistema
- */
-#ifndef EOS_MAX_SEMAPHORES
-#define EOS_MAX_SEMAPHORES 4
-#elif (EOS_MAX_SEMAPHORES < 0 || EOS_MAX_SEMAPHORES > 64)
-#error "La cantidad máxima de semaforos debe ser mayor o igual que 0 y menor que 64"
-#endif
-
-/**
- * @brief Define la máxima de colas de datos que se podran crear en el sistema
- */
-#ifndef EOS_MAX_QUEUES
-#define EOS_MAX_QUEUES 4
-#elif (EOS_MAX_QUEUES < 0 || EOS_MAX_QUEUES > 64)
-#error "La cantidad máxima de colas debe ser mayor o igual que 0 y menor que 64"
-#elif (EOS_MAX_SEMAPHORES < 3 * EOS_MAX_QUEUES)
-#error "Cada cola de datos requiere tres semaforos"
-#endif
-
 /* === Declaraciones de tipos de datos ========================================================= */
 
 /* === Declaraciones de variables externas ===================================================== */
 
 /* === Declaraciones de funciones externas ===================================================== */
+
+/**
+ * @brief Función interna del sistema operativo para consultar la cantidad de colas disponibles
+ *
+ * @return Cantidad de colas de datos disponibles para ser creadas
+ */
+uint32_t QueueAvaiables(void);
+
+/**
+ * @brief Función interna del sistema operativo para crear un una cola de datos
+ *
+ * @param data Puntero al bloque de datos donde se almacenaran los elementos
+ * @param data_count Cantidad de elementos que se pueden almacenar en el bloque suministrado
+ * @param data_size Tamaño en bytes de cada elemento almacenado
+ * @return Puntero al descriptor de la cola de datos creada
+ */
+eos_queue_t QueueCreate(void* data, uint32_t data_count, uint32_t data_size);
+
+/**
+ * @brief Función interna del sistema sistema operativo para agregar un dato en una cola
+ *
+ * @param queue Puntero al descriptor de la cola de datos
+ */
+void QueueGive(eos_queue_t queue, void const* const data);
+
+/**
+ * @brief Función interna del sistema operativo para obtener un dato de una cola
+ *
+ * @param queue Puntero al descriptor de la cola de datos
+ */
+void QueueTake(eos_queue_t queue, void* const data);
+
+/**
+ * @brief Función interna del sistema operativo para destruir una cola de datos
+ *
+ * @param queue Puntero al descriptor de la cola de datos
+ * @return eos_queue_t
+ */
+void QueueDestroy(eos_queue_t self);
 
 /* === Ciere de documentacion ================================================================== */
 #ifdef __cplusplus
@@ -123,4 +110,4 @@ extern "C" {
 
 /** @} Final de la definición del modulo para doxygen */
 
-#endif /* EOS_H */
+#endif /* COLAS_H */

@@ -32,4 +32,4 @@ Este proyecto está desarrollado dentro del entorno del proyecto (CIAA)[www.proy
 
 ## En este release
 
-En esta versión del proyecto implementan semaforos contadores y un ejemplo de uso funcional en el main. La versión implementada soporta multiples consumidores bloqueados esperando el mismo semaforo.
+En esta versión del proyecto implementan colas de datos controladas por el sistema operativo y se incluye unn ejemplo funciónal del uso de las mismas en el main. Ademas se agregan pruebas unitarias para comprobar el funcionamiento de las colas. La cola de datos  implementada utiliza tres semaforos y soporta multiples consumidores y multiples productores bloqueados esperando en la misma cola.
