@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|  14 | 2021.08.09 | evolentini      | Se agrega un ejemplo de uso de un semaforo              |
  **|  13 | 2021.08.09 | evolentini      | Se utilizan solo las funciones publicas del SO          |
  **|  12 | 2021.08.08 | evolentini      | Se cambia para utilizar las notificaciones del sistema  |
  **|  11 | 2021.08.08 | evolentini      | Se cambia para crear tareas con diferentes prioridades  |
@@ -107,6 +108,8 @@ static const struct parpadeo_s PARAMETROS[] = {
     { .led = LED1, .periodo = 2000 },
     { .led = LED2, .periodo = 1000 },
 };
+
+static eos_semaphore_t mutex;
 
 /* === Definiciones de variables externas ====================================================== */
 
@@ -190,16 +193,13 @@ void TareaB(void* data)
 
     parpadeo_t parametros = data;
     while (1) {
-        gpioToggle(parametros->led);
+        EosSemaphoreTake(mutex);
+        gpioWrite(parametros->led, true);
         EosWaitDelay(parametros->periodo);
 
-        // Bloque de codigo para matar una de las tareas
-        if (parametros->led == LED1) {
-            count++;
-            if (count == 10) {
-                break;
-            }
-        }
+        EosSemaphoreGive(mutex);
+        gpioWrite(parametros->led, false);
+        EosWaitDelay(parametros->periodo);
     }
 }
 
@@ -210,7 +210,7 @@ int main(void)
     /* Creación de las tareas */
     EosTaskCreate(TareaA, NULL, 0);
     EosTaskCreate(TareaB, (void*)&PARAMETROS[0], 1);
-
+    mutex = EosSemaphoreCreate(1);
     /* Configuración de los dispositivos de la placa */
     boardConfig();
 

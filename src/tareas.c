@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|  13 | 2021.08.09 | evolentini      | Se publican funciones necesarias implementar semaforos  |
  **|  12 | 2021.08.10 | evolentini      | Soporte para encolar las tareas con una lista enlazada  |
  **|  11 | 2021.08.09 | evolentini      | Se separan las funciones publicas y privadas del SO     |
  **|  10 | 2021.08.08 | evolentini      | Se agregan notificaciones del sistema al usuario        |
@@ -59,6 +60,7 @@
 
 #include "tareas.h"
 #include "planificador.h"
+#include "semaforos.h"
 #include "sapi.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -66,16 +68,6 @@
 /* === Definiciones y Macros =================================================================== */
 
 /* === Declaraciones de tipos de datos internos ================================================ */
-
-/**
- * @brief Tipo de datos enumerado con los estados de las tareas
- */
-typedef enum eos_task_state_e {
-    CREATING = 0,
-    READY,
-    WAITING,
-    RUNNING,
-} eos_task_state_t;
 
 /**
  * @brief Estructura que almacena el descriptor de una tarea
@@ -89,6 +81,8 @@ typedef struct eos_task_s {
     uint32_t wait_ticks;
     //! Prioridad actual de la tarea
     uint8_t priority;
+    //! Puntero a la siguiente tarea en la cola
+    eos_task_t next_task;
 } * eos_task_t;
 
 /**
@@ -173,22 +167,9 @@ void PrepareContext(eos_task_t task, eos_task_entry_point_t entry_point, void* d
 __attribute__((naked())) void RetoreContext(void* stack_pointer);
 
 /**
- * @brief Función para programar una llamada al planificado al terminar la interrupcion en curso
- */
-void SchedulingRequired(void);
-
-/**
  * @brief Función para implementar el control del tiempos del sistema operativo
  */
 void TickEvent(void);
-
-/**
- * @brief Función para cambiar el estado de una tarea
- *
- * @param   task    Puntero al descriptor de la tarea que se desea cambiar de estado
- * @param   state   Nuevo estado que se asigna a la tarea
- */
-void TaskSetState(eos_task_t task, eos_task_state_t state);
 
 /**
  * @brief Función para asignar la pila a una tarea
@@ -263,14 +244,6 @@ __attribute__((naked())) void RetoreContext(void* stack_pointer)
     __asm__ volatile("bx lr");
 }
 
-void SchedulingRequired(void)
-{
-    if (kernel->scheduler) {
-        // Fija la bandera de pedido de la excepcion PendSV
-        SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
-    }
-}
-
 void TickEvent(void)
 {
     for (int index = 0; index < EOS_MAX_TASK_COUNT; index++) {
@@ -284,22 +257,6 @@ void TickEvent(void)
         }
     }
     SysTickCallback();
-}
-
-void TaskSetState(eos_task_t task, eos_task_state_t state)
-{
-    if (task->state != state) {
-        if (task == kernel->background) {
-            if (state == READY || state == RUNNING) {
-                task->state = state;
-            }
-        } else {
-            task->state = state;
-            if (task->state == READY && kernel->scheduler) {
-                SchedulerEnqueue(kernel->scheduler, task, task->priority);
-            }
-        }
-    }
 }
 
 void TaskAsignStack(eos_task_t task, uint16_t size)
@@ -350,6 +307,28 @@ eos_task_t TaskCreate(eos_task_entry_point_t entry_point, void* data, uint8_t pr
         TaskSetState(task, READY);
     }
     return task;
+}
+
+void TaskSetState(eos_task_t task, eos_task_state_t state)
+{
+    if (task->state != state) {
+        if (task == kernel->background) {
+            if (state == READY || state == RUNNING) {
+                task->state = state;
+            }
+        } else {
+            task->state = state;
+            if (task->state == READY && kernel->scheduler) {
+                SchedulerEnqueue(kernel->scheduler, task, task->priority);
+            }
+        }
+    }
+}
+
+eos_task_t TaskGetDescriptor(void)
+{
+    // Devuelve el puntero a la tarea actual
+    return kernel->active_task;
 }
 
 void TaskEnqueue(eos_task_t first_task, eos_task_t last_task)
@@ -403,6 +382,14 @@ void StartScheduler(void)
     }
 }
 
+void SchedulingRequired(void)
+{
+    if (kernel->scheduler) {
+        // Fija la bandera de pedido de la excepcion PendSV
+        SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
+    }
+}
+
 void SysTick_Handler(void)
 {
     // Se llama a la funcion del sistema operativo para gestionar los tiempos
@@ -415,6 +402,12 @@ void SVC_Handler(uint32_t service, uint32_t data)
     case EOS_SERVICE_DELAY:
         kernel->active_task->state = WAITING;
         kernel->active_task->wait_ticks = data;
+        break;
+    case EOS_SERVICE_GIVE:
+        SemaphoreGive((eos_semaphore_t)data);
+        break;
+    case EOS_SERVICE_TAKE:
+        SemaphoreTake((eos_semaphore_t)data);
         break;
     default:
         break;

@@ -33,17 +33,14 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef EOS_H
-#define EOS_H
+#ifndef SEMAFOROS_H
+#define SEMAFOROS_H
 
-/** @file eos.h
- ** @brief Declaraciones publicas del sistema operativo
+/** @file semaforos.h
+ ** @brief Declaraciones privadas del sistema operativo para la gestion de semaforos
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
- **|   4 | 2021.08.09 | evolentini      | Se incluyen las definiciones para semaforos             |
- **|   3 | 2021.08.09 | evolentini      | Se separan las funciones publicas y privadas del SO     |
- **|   2 | 2021.08.08 | evolentini      | Se agrega la cantidad de pioridades del sistema         |
  **|   1 | 2021.08.08 | evolentini      | Version inicial del archivo                             |
  **
  ** @addtogroup eos
@@ -52,8 +49,7 @@
 
 /* === Inclusiones de archivos externos ======================================================== */
 
-#include "eos_config.h"
-#include "eos_api.h"
+#include "eos.h"
 
 /* === Cabecera C++ ============================================================================ */
 #ifdef __cplusplus
@@ -62,47 +58,33 @@ extern "C" {
 
 /* === Definiciones y Macros =================================================================== */
 
-/**
- * @brief Define la cantidad de máxima de tareas que se podrán crear
- */
-#ifndef EOS_MAX_TASK_COUNT
-#define EOS_MAX_TASK_COUNT 8
-#elif (EOS_MAX_TASK_COUNT < 2)
-#error "La cantidad minima de tareas del sistema operativo es dos"
-#endif
-
-/**
- * @brief define la cantidad de bytes asignado como pila para cada tarea
- */
-#ifndef EOS_TASK_STACK_SIZE
-#define EOS_TASK_STACK_SIZE 256
-#elif (EOS_TASK_STACK_SIZE < 128)
-#error "La cantidad mínima de byte para asignar a una tarea es de 128 bytes"
-#endif
-
-/**
- * @brief Define la máxima prioridad que se podrá asignar a una tarea
- */
-#ifndef EOS_MAX_PRIORITY
-#define EOS_MAX_PRIORITY 4
-#elif (EOS_MAX_PRIORITY < 0 || EOS_MAX_PRIORITY > 16)
-#error "La máxima prioridad de las tareas debe ser mayor o igual que 0 y menor que 16"
-#endif
-
-/**
- * @brief Define la cantidad máxima semaforos que se podran crear en el sistema
- */
-#ifndef EOS_MAX_SEMAPHORES
-#define EOS_MAX_SEMAPHORES 4
-#elif (EOS_MAX_SEMAPHORES < 0 || EOS_MAX_SEMAPHORES > 64)
-#error "La cantidad máxima de semaforos debe ser mayor o igual que 0 y menor que 64"
-#endif
-
 /* === Declaraciones de tipos de datos ========================================================= */
 
 /* === Declaraciones de variables externas ===================================================== */
 
 /* === Declaraciones de funciones externas ===================================================== */
+
+/**
+ * @brief Función interna del sistema operativo para crear un semaforo contador
+ *
+ * @param initial_value Valor inicial del semaforo
+ * @return Puntero al descriptor del semaforo creado
+ */
+eos_semaphore_t SemaphoreCreate(int32_t initial_value);
+
+/**
+ * @brief Función interna del sistema operativo para tomar un semaforo
+ *
+ * @param semaphore Puntero al descriptor del semaforo
+ */
+void SemaphoreGive(eos_semaphore_t semaphore);
+
+/**
+ * @brief Función interna del sistema operativo para otorgar un semaforo
+ *
+ * @param semaphore Puntero al descriptor del semaforo
+ */
+void SemaphoreTake(eos_semaphore_t semaphore);
 
 /* === Ciere de documentacion ================================================================== */
 #ifdef __cplusplus
@@ -111,4 +93,4 @@ extern "C" {
 
 /** @} Final de la definición del modulo para doxygen */
 
-#endif /* EOS_H */
+#endif /* SEMAFOROS_H */

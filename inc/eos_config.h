@@ -41,6 +41,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   3 | 2021.08.09 | evolentini      | Se incluyen las definiciones para semaforos             |
  **|   2 | 2021.08.08 | evolentini      | Se agrega la cantidad de pioridades del sistema         |
  **|   1 | 2021.08.08 | evolentini      | Version inicial del archivo                             |
  **
@@ -71,6 +72,10 @@ extern "C" {
  */
 #define EOS_MAX_PRIORITY 4
 
+/**
+ * @brief Define la cantidad máxima semaforos que se podran crear en el sistema
+ */
+#define EOS_MAX_SEMAPHORES 4
 
 /* === Declaraciones de tipos de datos ========================================================= */
 

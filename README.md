@@ -32,4 +32,4 @@ Este proyecto está desarrollado dentro del entorno del proyecto (CIAA)[www.proy
 
 ## En este release
 
-En esta versión del proyecto se cambia la implemntación de la cola de prioridades del planificador y se utiliza una lista enlazada donde cada tarea puede contener un puntero a la siguiente tarea en la cola.
+En esta versión del proyecto implementan semaforos contadores y un ejemplo de uso funcional en el main. La versión implementada soporta multiples consumidores bloqueados esperando el mismo semaforo.

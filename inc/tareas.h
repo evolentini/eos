@@ -41,6 +41,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   8 | 2021.08.09 | evolentini      | Se publican funciones necesarias implementar semaforos  |
  **|   7 | 2021.08.10 | evolentini      | Soporte para encolar las tareas con una lista enlazada  |
  **|   6 | 2021.08.09 | evolentini      | Se separan las funciones publicas y privadas del SO     |
  **|   5 | 2021.08.08 | evolentini      | Se agregan notificaciones del sistema al usuario        |
@@ -67,6 +68,16 @@ extern "C" {
 
 /* === Declaraciones de tipos de datos ========================================================= */
 
+/**
+ * @brief Tipo de datos enumerado con los estados de las tareas
+ */
+typedef enum eos_task_state_e {
+    CREATING = 0,
+    READY,
+    WAITING,
+    RUNNING,
+} eos_task_state_t;
+
 /* === Declaraciones de variables externas ===================================================== */
 
 /* === Declaraciones de funciones externas ===================================================== */
@@ -83,9 +94,29 @@ extern "C" {
 eos_task_t TaskCreate(eos_task_entry_point_t entry_point, void* data, uint8_t priority);
 
 /**
+ * @brief Función para cambiar el estado de una tarea
+ *
+ * @param   task    Puntero al descriptor de la tarea que se desea cambiar de estado
+ * @param   state   Nuevo estado que se asigna a la tarea
+ */
+void TaskSetState(eos_task_t task, eos_task_state_t state);
+
+/**
+ * @brief Función para obtener puntero al descriptor de la tarea actual
+ *
+ * @return Puntero al descriptor de la tarea en ejecución
+ */
+eos_task_t TaskGetDescriptor(void);
+
+/**
  * @brief Función para iniciar el planificador del sistema operativo
  */
 void StartScheduler(void);
+
+/**
+ * @brief Función para programar una llamada al planificado al terminar la interrupcion en curso
+ */
+void SchedulingRequired(void);
 
 /**
  * @brief Función de usuario para ejecutar cuando el sistema se encuentra inactivo

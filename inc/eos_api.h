@@ -1,9 +1,9 @@
-/* Copyright 2016-2021, Laboratorio de Microprocesadores 
- * Facultad de Ciencias Exactas y Tecnología 
+/* Copyright 2016-2021, Laboratorio de Microprocesadores
+ * Facultad de Ciencias Exactas y Tecnología
  * Universidad Nacional de Tucuman
  * http://www.microprocesadores.unt.edu.ar/
  * Copyright 2016-2021, Esteban Volentini <evolentini@herrera.unt.edu.ar>
- * 
+ *
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,15 +41,15 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   2 | 2021.08.09 | evolentini      | Se incluyen las funciones para manejo de semaforos      |
  **|   1 | 2021.08.09 | evolentini      | Version inicial del archivo                             |
  **
- ** @addtogroup modulo 
- ** @brief Breve descripción del modulo
+ ** @addtogroup eos
+ ** @brief Sistema operativo
  ** @{ */
 
 /* === Inclusiones de archivos externos ======================================================== */
 
-#include <stdbool.h>
 #include <stdint.h>
 
 /* === Cabecera C++ ============================================================================ */
@@ -63,6 +63,8 @@ extern "C" {
 
 typedef enum {
     EOS_SERVICE_DELAY = 1,
+    EOS_SERVICE_GIVE,
+    EOS_SERVICE_TAKE,
 } eos_services_t;
 
 /**
@@ -74,6 +76,11 @@ typedef void (*eos_task_entry_point_t)(void* data);
  * @brief Tipo de datos con un puntero a un descriptor de tarea
  */
 typedef struct eos_task_s* eos_task_t;
+
+/**
+ * @brief Tipo de datos con la referencia al descriptor de un semaforo
+ */
+typedef struct eos_semaphore_s* eos_semaphore_t;
 
 /* === Declaraciones de variables externas ===================================================== */
 
@@ -101,6 +108,28 @@ void EosStartScheduler(void);
  * @param[in]  delay        Cantidad de tiempo en milisegundos que espera la tarea
  */
 void EosWaitDelay(uint32_t delay);
+
+/**
+ * @brief Función del sistema operativo para crear un semaforo contador
+ *
+ * @param initial_value Valor inicial del semaforo
+ * @return Puntero al descriptor del semaforo creado
+ */
+eos_semaphore_t EosSemaphoreCreate(int32_t initial_value);
+
+/**
+ * @brief Llamada al sistema operativo para tomar un semaforo
+ *
+ * @param semaphore Puntero al descriptor del semaforo
+ */
+void EosSemaphoreGive(eos_semaphore_t semaphore);
+
+/**
+ * @brief  Llamada al sistema operativo para otorgar un semaforo
+ *
+ * @param semaphore Puntero al descriptor del semaforo
+ */
+void EosSemaphoreTake(eos_semaphore_t semaphore);
 
 /* === Ciere de documentacion ================================================================== */
 #ifdef __cplusplus

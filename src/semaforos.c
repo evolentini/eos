@@ -33,12 +33,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** @file eos_api.c
- ** @brief Implementación de las funciones publicas del sistema operativo
+/** @file semaforos.c
+ ** @brief Implementación de las funciones para la gestion de semaforos
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
- **|   2 | 2021.08.09 | evolentini      | Se incluyen las funciones para manejo de semaforos      |
  **|   1 | 2021.08.08 | evolentini      | Version inicial del archivo                             |
  **
  ** @addtogroup eos
@@ -53,55 +52,88 @@
 
 /* === Definiciones y Macros =================================================================== */
 
+//! Estructura de datos con la información de un semaforo contador
+struct eos_semaphore_s {
+    //! Valor actual del semaforo contador, siempre es un entero positivo
+    int32_t value;
+    //! Puntero a la primera tarea que espera la liberacion del semaforo
+    eos_task_t waiting;
+};
+
 /* === Declaraciones de tipos de datos internos ================================================ */
 
 /* === Declaraciones de funciones internas ===================================================== */
 
+/**
+ * @brief Busca y asigna un desciptor para una nueva tarea
+ */
+static eos_semaphore_t AllocateDescriptor(void);
+
 /* === Definiciones de variables internas ====================================================== */
+
+//! Variable local con el almacenamiento de las instancias de los semaforos
+static struct eos_semaphore_s instances[EOS_MAX_SEMAPHORES] = { 0 };
 
 /* === Definiciones de variables externas ====================================================== */
 
 /* === Definiciones de funciones internas ====================================================== */
 
+static eos_semaphore_t AllocateDescriptor(void)
+{
+    // Variable con el puntero al primer lugar vacante en las instancias
+    static uint8_t first_empty = 0;
+
+    // Variable con el resultado del descriptor de tarea asignado
+    eos_semaphore_t self = NULL;
+
+    if (first_empty < EOS_MAX_SEMAPHORES) {
+        self = &(instances[first_empty]);
+        first_empty++;
+    }
+    return self;
+}
+
 /* === Definiciones de funciones externas ====================================================== */
-eos_task_t EosTaskCreate(eos_task_entry_point_t entry_point, void* data, uint8_t priority)
+
+eos_semaphore_t SemaphoreCreate(int32_t initial_value)
 {
-    // Llama a la función privada para crear una tarea
-    return TaskCreate(entry_point, data, priority);
+    eos_semaphore_t self = AllocateDescriptor();
+
+    if (self) {
+        self->waiting = NULL;
+        self->value = initial_value;
+    }
+    return self;
 }
 
-void EosStartScheduler(void)
+void SemaphoreGive(eos_semaphore_t self)
 {
-    // Llama a la función privada para iniciar el planificador
-    StartScheduler();
+    if (self->waiting) {
+        eos_task_t task = self->waiting;
+        self->waiting = TaskDequeue(task);
+        TaskSetState(task, READY);
+        SchedulingRequired();
+    } else {
+        self->value++;
+    }
 }
 
-void EosWaitDelay(uint32_t delay)
+void SemaphoreTake(eos_semaphore_t self)
 {
-    __asm__ volatile("mov r1, r0");
-    __asm__ volatile("mov r0, %0" : : "I"(EOS_SERVICE_DELAY));
-    __asm__ volatile("svc #0");
+    if (self->value > 0) {
+        self->value--;
+    } else {
+        eos_task_t task = TaskGetDescriptor();
+        if (self->waiting == NULL) {
+            self->waiting = task;
+        } else {
+            TaskEnqueue(self->waiting, task);
+        }
+        TaskSetState(task, WAITING);
+        SchedulingRequired();
+    }
 }
 
-eos_semaphore_t EosSemaphoreCreate(int32_t initial_value)
-{
-    // Llama a la función privada para crear un semaforo
-    return SemaphoreCreate(initial_value);
-}
-
-void EosSemaphoreGive(eos_semaphore_t self)
-{
-    __asm__ volatile("mov r1, r0");
-    __asm__ volatile("mov r0, %0" : : "I"(EOS_SERVICE_GIVE));
-    __asm__ volatile("svc #0");
-}
-
-void EosSemaphoreTake(eos_semaphore_t self)
-{
-    __asm__ volatile("mov r1, r0");
-    __asm__ volatile("mov r0, %0" : : "I"(EOS_SERVICE_TAKE));
-    __asm__ volatile("svc #0");
-}
 /* === Ciere de documentacion ================================================================== */
 
 /** @} Final de la definición del modulo para doxygen */
