@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   4 | 2021.08.15 | evolentini      | Se incluyen los handlers de interrupciones              |
  **|   3 | 2021.08.14 | evolentini      | Se incluyen las funciones para manejo de colas de datos |
  **|   2 | 2021.08.09 | evolentini      | Se incluyen las funciones para manejo de semaforos      |
  **|   1 | 2021.08.08 | evolentini      | Version inicial del archivo                             |
@@ -50,6 +51,8 @@
 
 #include "semaforos.h"
 #include "tareas.h"
+#include "colas.h"
+#include "interrupciones.h"
 #include <stddef.h>
 
 /* === Definiciones y Macros =================================================================== */
@@ -65,7 +68,7 @@
 /* === Definiciones de funciones internas ====================================================== */
 
 /* === Definiciones de funciones externas ====================================================== */
-eos_task_t EosTaskCreate(eos_task_entry_point_t entry_point, void* data, uint8_t priority)
+eos_task_t EosTaskCreate(eos_entry_point_t entry_point, void* data, uint8_t priority)
 {
     // Llama a la función privada para crear una tarea
     return TaskCreate(entry_point, data, priority);
@@ -79,9 +82,11 @@ void EosStartScheduler(void)
 
 void EosWaitDelay(uint32_t delay)
 {
-    __asm__ volatile("mov r1, r0");
-    __asm__ volatile("mov r0, %0" : : "I"(EOS_SERVICE_DELAY));
-    __asm__ volatile("svc #0");
+    if (!HandlerActive()) {
+        __asm__ volatile("mov r1, %0" : : "r"(delay));
+        __asm__ volatile("mov r0, %0" : : "I"(EOS_SERVICE_DELAY));
+        __asm__ volatile("svc #0");
+    }
 }
 
 eos_semaphore_t EosSemaphoreCreate(int32_t initial_value)
@@ -92,16 +97,28 @@ eos_semaphore_t EosSemaphoreCreate(int32_t initial_value)
 
 void EosSemaphoreGive(eos_semaphore_t self)
 {
-    __asm__ volatile("mov r1, r0");
-    __asm__ volatile("mov r0, %0" : : "I"(EOS_SERVICE_GIVE));
-    __asm__ volatile("svc #0");
+    if (HandlerActive()) {
+        SemaphoreGive(self);
+    } else {
+        __asm__ volatile("mov r1, %0" : : "r"(self));
+        __asm__ volatile("mov r0, %0" : : "I"(EOS_SERVICE_GIVE));
+        __asm__ volatile("svc #0");
+    }
 }
 
-void EosSemaphoreTake(eos_semaphore_t self)
+bool EosSemaphoreTake(eos_semaphore_t self)
 {
-    __asm__ volatile("mov r1, r0");
-    __asm__ volatile("mov r0, %0" : : "I"(EOS_SERVICE_TAKE));
-    __asm__ volatile("svc #0");
+    static bool resultado;
+
+    if (HandlerActive()) {
+        resultado = SemaphoreTake(self);
+    } else {
+        __asm__ volatile("mov r1, %0" : : "r"(self));
+        __asm__ volatile("mov r0, %0" : : "I"(EOS_SERVICE_TAKE));
+        __asm__ volatile("svc #0");
+        __asm__ volatile("str r0, %0" : "=m"(resultado));
+    }
+    return resultado;
 }
 
 eos_queue_t EosQueueCreate(void* data, uint32_t count, uint32_t size)
@@ -110,16 +127,28 @@ eos_queue_t EosQueueCreate(void* data, uint32_t count, uint32_t size)
     return QueueCreate(data, count, size);
 }
 
-void EosQueueGive(eos_queue_t queue, void* data)
+bool EosQueueGive(eos_queue_t queue, void* data)
 {
     // Llama a la función privada
-    QueueGive(queue, data);
+    return QueueGive(queue, data);
 }
 
-void EosQueueTake(eos_queue_t queue, void* data)
+bool EosQueueTake(eos_queue_t queue, void* data)
 {
     // Llama a la función privada
-    QueueTake(queue, data);
+    return QueueTake(queue, data);
+}
+
+void EosHandlerInstall(
+    uint8_t service, uint8_t prioridad, eos_entry_point_t entry_point, void* data)
+{
+    HandlerInstall(service, prioridad, entry_point, data);
+}
+
+void EosHandlerRemove(uint8_t service)
+{
+    // Llama a la función privada
+    HandlerRemove(service);
 }
 
 /* === Ciere de documentacion ================================================================== */

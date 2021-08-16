@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|  14 | 2021.08.15 | evolentini      | Compatibilidad con los handlers de interrupciones       |
  **|  13 | 2021.08.09 | evolentini      | Se publican funciones necesarias implementar semaforos  |
  **|  12 | 2021.08.10 | evolentini      | Soporte para encolar las tareas con una lista enlazada  |
  **|  11 | 2021.08.09 | evolentini      | Se separan las funciones publicas y privadas del SO     |
@@ -157,7 +158,7 @@ static eos_task_t AllocateDescriptor(void);
  * @param[in]  entry_point  Punto de entrada de la función que imeplementa la tarea
  * @param[in]  data         Puntero al bloque de datos para parametrizar la tarea
  */
-void PrepareContext(eos_task_t task, eos_task_entry_point_t entry_point, void* data);
+void PrepareContext(eos_task_t task, eos_entry_point_t entry_point, void* data);
 
 /**
  * @brief Función para recuperar el contexto de una tarea y cederle el procesador
@@ -215,7 +216,7 @@ static eos_task_t AllocateDescriptor(void)
     return task;
 }
 
-void PrepareContext(eos_task_t task, eos_task_entry_point_t entry_point, void* data)
+void PrepareContext(eos_task_t task, eos_entry_point_t entry_point, void* data)
 {
     task->stack_pointer -= sizeof(struct eos_task_context_s);
 
@@ -298,7 +299,7 @@ __attribute__((weak())) void InactiveCallback(void)
 
 /* === Definiciones de funciones externas ====================================================== */
 
-eos_task_t TaskCreate(eos_task_entry_point_t entry_point, void* data, uint8_t priority)
+eos_task_t TaskCreate(eos_entry_point_t entry_point, void* data, uint8_t priority)
 {
 
     // Variable con el descriptor signado a la nueva tarea
@@ -359,8 +360,9 @@ void StartScheduler(void)
     SysTick_Config(SystemCoreClock / 5000);
 
     /* Update priority set by SysTick_Config */
-    NVIC_SetPriority(SysTick_IRQn, (1 << __NVIC_PRIO_BITS) - 2);
-    NVIC_SetPriority(PendSV_IRQn, (1 << __NVIC_PRIO_BITS) - 1);
+    NVIC_SetPriority(SVCall_IRQn, NVIC_EncodePriority(7, 0, 0));
+    NVIC_SetPriority(SysTick_IRQn, NVIC_EncodePriority(7, 5, 0));
+    NVIC_SetPriority(PendSV_IRQn, NVIC_EncodePriority(7, 6, 0));
 
     /* Creación de la tarea inactiva del sistema */
     TaskAsignStack(kernel->background, EOS_TASK_STACK_SIZE);
@@ -399,8 +401,16 @@ void SysTick_Handler(void)
     TickEvent();
 }
 
-void SVC_Handler(uint32_t service, uint32_t data)
+void SVC_Handler(void)
 {
+    struct eos_task_context_auto_s* contexto;
+    __asm__ volatile("mrs r0, psp");
+    __asm__ volatile("str r0, %0" : "=m"(contexto));
+
+    uint32_t service = contexto->r0;
+    uint32_t data = contexto->r1;
+    uint32_t resultado = 0;
+
     switch (service) {
     case EOS_SERVICE_DELAY:
         kernel->active_task->state = WAITING;
@@ -410,11 +420,13 @@ void SVC_Handler(uint32_t service, uint32_t data)
         SemaphoreGive((eos_semaphore_t)data);
         break;
     case EOS_SERVICE_TAKE:
-        SemaphoreTake((eos_semaphore_t)data);
+        resultado = SemaphoreTake((eos_semaphore_t)data);
         break;
     default:
         break;
     }
+    contexto->r0 = resultado;
+
     SchedulingRequired();
 }
 

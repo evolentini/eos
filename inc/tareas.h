@@ -91,7 +91,7 @@ typedef enum eos_task_state_e {
  *
  * @return                  Puntero al descriptor de la tarea creada
  */
-eos_task_t TaskCreate(eos_task_entry_point_t entry_point, void* data, uint8_t priority);
+eos_task_t TaskCreate(eos_entry_point_t entry_point, void* data, uint8_t priority);
 
 /**
  * @brief Función para cambiar el estado de una tarea

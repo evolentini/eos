@@ -33,16 +33,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SEMAFOROS_H
-#define SEMAFOROS_H
+#ifndef INTERRUPCIONES_H
+#define INTERRUPCIONES_H
 
-/** @file semaforos.h
- ** @brief Declaraciones privadas del sistema operativo para la gestion de semaforos
+/** @file interrupciones.h
+ ** @brief Declaraciones privadas del sistema operativo para la gestion de interrupciones
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
- **|   2 | 2021.08.15 | evolentini      | Compatibilidad con los handlers de interrupciones       |
- **|   1 | 2021.08.08 | evolentini      | Version inicial del archivo                             |
+ **|   1 | 2021.08.15 | evolentini      | Version inicial del archivo                             |
  **
  ** @addtogroup eos
  ** @brief Sistema operativo
@@ -66,32 +65,29 @@ extern "C" {
 /* === Declaraciones de funciones externas ===================================================== */
 
 /**
- * @brief Función interna del sistema operativo para crear un semaforo contador
+ * @brief Función interna para deteminar si un handler de interrupcion esta activo
  *
- * @param initial_value Valor inicial del semaforo
- * @return Puntero al descriptor del semaforo creado
+ * @return \p true      El sistema se encuentra ejecutando un handler de interupcion
+ * @return \p false     El sistema se encuentra ejecutando tareas no privilagiadas
  */
-eos_semaphore_t SemaphoreCreate(int32_t initial_value);
+bool HandlerActive(void);
 
 /**
- * @brief Función interna del sistema operativo para otorgar un semaforo
+ * @brief Función interna para instalar un handler de interrupciones
  *
- * @param semaphore Puntero al descriptor del semaforo
+ * @param[in] service       Numero de interupcion en la que se desea instalar el handler
+ * @param[in] priority      Prioridad que se debe asignar a la inteerupción (0 a 3)
+ * @param[in] entry_point   Puntero a la función que implementa el handler de la interrupción
+ * @param[in] data          Puntero a un bloque de datos que se envia al handler
  */
-void SemaphoreGive(eos_semaphore_t semaphore);
+void HandlerInstall(uint8_t service, uint8_t priority, eos_entry_point_t entry_point, void* data);
 
 /**
- * @brief Función interna del sistema operativo para tomar un semaforo
+ * @brief Función interna para remover un handler de interrupciones
  *
- * @remark Cuando esta función se llama desde la rutina de servicio de una interrupción
- * y el semaforo no está disponible la función retorna \p false.
- *
- * @param semaphore     Puntero al descriptor del semaforo
- * @return \p true      El semaforo se pudo tomar correctamente
- * @return \p false     El semaforo no se pudo tomar porque estaba ocuapado y la función
- *                      se llamó desde la rutina de servicio de una interrupción
+ * @param[in] service       Numero de interupcion en la que se desea instalar el handler
  */
-bool SemaphoreTake(eos_semaphore_t semaphore);
+void HandlerRemove(uint8_t service);
 
 /* === Ciere de documentacion ================================================================== */
 #ifdef __cplusplus
@@ -100,4 +96,4 @@ bool SemaphoreTake(eos_semaphore_t semaphore);
 
 /** @} Final de la definición del modulo para doxygen */
 
-#endif /* SEMAFOROS_H */
+#endif /* INTERRUPCIONES_H */

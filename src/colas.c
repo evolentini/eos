@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   2 | 2021.08.15 | evolentini      | Compatibilidad con los handlers de interrupciones       |
  **|   1 | 2021.08.14 | evolentini      | Version inicial del archivo                             |
  **
  ** @addtogroup eos
@@ -71,8 +72,6 @@ struct eos_queue_s {
     eos_semaphore_t full;
     //! Semaforo para esperar cuando la cola esta vacia
     eos_semaphore_t empty;
-    //! Semaforo de exclusión mutua para asegurar la sección critica
-    eos_semaphore_t mutex;
 };
 
 /* === Declaraciones de funciones internas ===================================================== */
@@ -142,31 +141,40 @@ eos_queue_t QueueCreate(void* data, uint32_t data_count, uint32_t data_size)
         self->data_size = data_size;
         self->full = EosSemaphoreCreate(data_count);
         self->empty = EosSemaphoreCreate(0);
-        self->mutex = EosSemaphoreCreate(1);
     }
     return self;
 }
 
-void QueueGive(eos_queue_t self, void const* const data)
+bool QueueGive(eos_queue_t self, void const* const data)
 {
-    EosSemaphoreTake(self->full);
-    EosSemaphoreTake(self->mutex);
-    void* location = GetElementAddress(self, self->index_give);
-    memcpy(location, data, self->data_size);
-    self->index_give = (self->index_give + 1) % self->data_count;
-    EosSemaphoreGive(self->mutex);
-    EosSemaphoreGive(self->empty);
+    // Intenta obtener un lugar en la cola
+    bool result = EosSemaphoreTake(self->full);
+
+    // Si falla es porque la cola esta llena y estamos en una interupcion
+    if (!result) {
+        void* location = GetElementAddress(self, self->index_give);
+        memcpy(location, data, self->data_size);
+        self->index_give = (self->index_give + 1) % self->data_count;
+
+        EosSemaphoreGive(self->empty);
+    }
+    return result;
 }
 
-void QueueTake(eos_queue_t self, void* const data)
+bool QueueTake(eos_queue_t self, void* const data)
 {
-    EosSemaphoreTake(self->empty);
-    EosSemaphoreTake(self->mutex);
-    void* location = GetElementAddress(self, self->index_take);
-    memcpy(data, location, self->data_size);
-    self->index_take = (self->index_take + 1) % self->data_count;
-    EosSemaphoreGive(self->mutex);
-    EosSemaphoreGive(self->full);
+    // Intenta obtener un elemento de la cola
+    bool result = EosSemaphoreTake(self->empty);
+
+    // Si falla es porque la cola esta vacia y estamos en una interupcion
+    if (!result) {
+        void* location = GetElementAddress(self, self->index_take);
+        memcpy(data, location, self->data_size);
+        self->index_take = (self->index_take + 1) % self->data_count;
+
+        EosSemaphoreGive(self->full);
+    }
+    return result;
 }
 
 void QueueDestroy(eos_queue_t self)

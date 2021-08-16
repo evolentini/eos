@@ -32,4 +32,4 @@ Este proyecto está desarrollado dentro del entorno del proyecto (CIAA)[www.proy
 
 ## En este release
 
-En esta versión del proyecto implementan colas de datos controladas por el sistema operativo y se incluye unn ejemplo funciónal del uso de las mismas en el main. Ademas se agregan pruebas unitarias para comprobar el funcionamiento de las colas. La cola de datos  implementada utiliza tres semaforos y soporta multiples consumidores y multiples productores bloqueados esperando en la misma cola.
+En esta versión del proyecto implementan los manejadores de interrupciones, y se adaptan los servicios de semaforos y colas del sistema operativo para que funcionen adecuadamente cuando son utilizados desde la rutina de servicio de una interrupción. Se agrega en el programa principal un ejemplo de uso.

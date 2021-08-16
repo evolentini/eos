@@ -41,6 +41,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   4 | 2021.08.15 | evolentini      | Se incluyen los handlers de interrupciones              |
  **|   3 | 2021.08.14 | evolentini      | Se incluyen las funciones para manejo de colas de datos |
  **|   2 | 2021.08.09 | evolentini      | Se incluyen las funciones para manejo de semaforos      |
  **|   1 | 2021.08.09 | evolentini      | Version inicial del archivo                             |
@@ -52,6 +53,7 @@
 /* === Inclusiones de archivos externos ======================================================== */
 
 #include <stdint.h>
+#include <stdbool.h>
 
 /* === Cabecera C++ ============================================================================ */
 #ifdef __cplusplus
@@ -74,7 +76,7 @@ typedef enum {
 /**
  * @brief Tipo de datos con un puntero a una funcion que implementa una tarea
  */
-typedef void (*eos_task_entry_point_t)(void* data);
+typedef void (*eos_entry_point_t)(void* data);
 
 /**
  * @brief Tipo de datos con un puntero a un descriptor de tarea
@@ -101,10 +103,10 @@ typedef struct eos_queue_s* eos_queue_t;
  * @param[in]  entry_point  Puntero a la función que implementa la tarea
  * @param[in]  data         Puntero al bloque de datos para parametrizar la tarea
  * @param[in]  priority     Prioridad de la tarea que se desea crear
- *  
+ *
  * @return                  Puntero al descriptor de la tarea creada
  */
-eos_task_t EosTaskCreate(eos_task_entry_point_t entry_point, void* data, uint8_t priority);
+eos_task_t EosTaskCreate(eos_entry_point_t entry_point, void* data, uint8_t priority);
 
 /**
  * @brief Función para iniciar el planificador del sistema operativo
@@ -138,7 +140,7 @@ void EosSemaphoreGive(eos_semaphore_t semaphore);
  *
  * @param semaphore Puntero al descriptor del semaforo
  */
-void EosSemaphoreTake(eos_semaphore_t semaphore);
+bool EosSemaphoreTake(eos_semaphore_t semaphore);
 
 /**
  * @brief Función del sistema operativo para crear un una cola de datos
@@ -155,14 +157,32 @@ eos_queue_t EosQueueCreate(void* data, uint32_t count, uint32_t size);
  *
  * @param queue Puntero al descriptor de la cola de datos
  */
-void EosQueueGive(eos_queue_t queue, void* data);
+bool EosQueueGive(eos_queue_t queue, void* data);
 
 /**
  * @brief Llamada al sistema operativo para obtener un dato de una cola
  *
  * @param queue Puntero al descriptor de la cola de datos
  */
-void EosQueueTake(eos_queue_t queue, void* data);
+bool EosQueueTake(eos_queue_t queue, void* data);
+
+/**
+ * @brief Función interna para instalar un handler de interrupciones
+ *
+ * @param[in] service       Numero de interupcion en la que se desea instalar el handler
+ * @param[in] priority      Prioridad que se debe asignar a la inteerupción (0 a 3)
+ * @param[in] entry_point   Puntero a la función que implementa el handler de la interrupción
+ * @param[in] data          Puntero a un bloque de datos que se envia al handler
+ */
+void EosHandlerInstall(
+    uint8_t service, uint8_t priority, eos_entry_point_t entry_point, void* data);
+
+/**
+ * @brief Función interna para remover un handler de interrupciones
+ *
+ * @param[in] service       Numero de interupcion en la que se desea instalar el handler
+ */
+void EosHandlerRemove(uint8_t service);
 
 /* === Ciere de documentacion ================================================================== */
 #ifdef __cplusplus

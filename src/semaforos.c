@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   2 | 2021.08.15 | evolentini      | Compatibilidad con los handlers de interrupciones       |
  **|   1 | 2021.08.08 | evolentini      | Version inicial del archivo                             |
  **
  ** @addtogroup eos
@@ -48,6 +49,7 @@
 
 #include "semaforos.h"
 #include "tareas.h"
+#include "interrupciones.h"
 #include <stddef.h>
 
 /* === Definiciones y Macros =================================================================== */
@@ -118,11 +120,13 @@ void SemaphoreGive(eos_semaphore_t self)
     }
 }
 
-void SemaphoreTake(eos_semaphore_t self)
+bool SemaphoreTake(eos_semaphore_t self)
 {
+    bool result = false;
+
     if (self->value > 0) {
         self->value--;
-    } else {
+    } else if (!HandlerActive()) {
         eos_task_t task = TaskGetDescriptor();
         if (self->waiting == NULL) {
             self->waiting = task;
@@ -131,7 +135,11 @@ void SemaphoreTake(eos_semaphore_t self)
         }
         TaskSetState(task, WAITING);
         SchedulingRequired();
+    } else {
+        result = false;
     }
+
+    return result;
 }
 
 /* === Ciere de documentacion ================================================================== */

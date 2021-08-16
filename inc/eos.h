@@ -106,8 +106,8 @@ extern "C" {
 #define EOS_MAX_QUEUES 4
 #elif (EOS_MAX_QUEUES < 0 || EOS_MAX_QUEUES > 64)
 #error "La cantidad máxima de colas debe ser mayor o igual que 0 y menor que 64"
-#elif (EOS_MAX_SEMAPHORES < 3 * EOS_MAX_QUEUES)
-#error "Cada cola de datos requiere tres semaforos"
+#elif (EOS_MAX_SEMAPHORES < 2 * EOS_MAX_QUEUES)
+#error "Cada cola de datos requiere dos semaforos"
 #endif
 
 /* === Declaraciones de tipos de datos ========================================================= */

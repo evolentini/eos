@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|  15 | 2021.08.15 | evolentini      | Se agrega un ejemplo de uso los handler de interrupcion |
  **|  14 | 2021.08.14 | evolentini      | Se agrega un ejemplo de uso de las colas de datos       |
  **|  14 | 2021.08.09 | evolentini      | Se agrega un ejemplo de uso de un semaforo              |
  **|  13 | 2021.08.09 | evolentini      | Se utilizan solo las funciones publicas del SO          |
@@ -151,6 +152,23 @@ void Delay(int espera)
 }
 
 /**
+ * @brief Funcion para configurar una interupción de puerto GPIO
+ *
+ * @param[in] canal     Numero de canal de interupción GPIO (0 a 7)
+ * @param[in] puerto    Numero de puerto GPIO al que pertenece el terimnal (0 a 7)
+ * @param[in] terminal  Numero de terminal GPIO que produce interupción (0 a 31)
+ */
+void ConfigurarInterrupcion(uint8_t canal, uint8_t puerto, uint8_t terminal)
+{
+    uint32_t mascara = 1 << canal;
+    Chip_SCU_GPIOIntPinSel(canal, puerto, terminal);
+    Chip_PININT_SetPinModeEdge(LPC_GPIO_PIN_INT, mascara);
+    Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, mascara);
+    Chip_PININT_EnableIntLow(LPC_GPIO_PIN_INT, mascara);
+    Chip_PININT_EnableIntHigh(LPC_GPIO_PIN_INT, mascara);
+}
+
+/**
  * @brief Función que parpadea el canal verde del led RGB cuando el sistema esta inactivo
  */
 void InactiveCallback(void)
@@ -254,6 +272,25 @@ void Parpadeo(void* data)
         EosWaitDelay(parametros->periodo);
     }
 }
+/**
+ * @brief Handler para atender la interupcion de teclado
+ *
+ * @param data
+ */
+void EventoTecla(void* data)
+{
+    int indice = 0;
+    bool estado = (Chip_PININT_GetFallStates(LPC_GPIO_PIN_INT) & (1 << indice));
+    Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, 1 << indice);
+
+    if (estado) {
+        eos_queue_t queue = data;
+        struct parpadeo_s datos[1];
+        datos->led = LED3;
+        datos->periodo = 5000;
+        EosQueueGive(queue, datos);
+    }
+}
 
 /* === Definiciones de funciones externas ====================================================== */
 
@@ -267,10 +304,12 @@ int main(void)
     EosTaskCreate(Teclado, queue, 0);
     EosTaskCreate(Pantalla, queue, 0);
 
-    EosTaskCreate(Parpadeo, (void*)&PARAMETROS[0], 1);
-    EosTaskCreate(Parpadeo, (void*)&PARAMETROS[1], 1);
+    ConfigurarInterrupcion(0, 0, 4);
+    EosHandlerInstall(PIN_INT0_IRQn, 0, EventoTecla, queue);
 
     mutex = EosSemaphoreCreate(1);
+    EosTaskCreate(Parpadeo, (void*)&PARAMETROS[0], 1);
+    EosTaskCreate(Parpadeo, (void*)&PARAMETROS[1], 1);
 
     /* Configuración de los dispositivos de la placa */
     boardConfig();

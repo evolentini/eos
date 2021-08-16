@@ -41,6 +41,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   2 | 2021.08.15 | evolentini      | Compatibilidad con los handlers de interrupciones       |
  **|   1 | 2021.08.14 | evolentini      | Version inicial del archivo                             |
  **
  ** @addtogroup eos
@@ -74,32 +75,45 @@ uint32_t QueueAvaiables(void);
 /**
  * @brief Función interna del sistema operativo para crear un una cola de datos
  *
- * @param data Puntero al bloque de datos donde se almacenaran los elementos
- * @param data_count Cantidad de elementos que se pueden almacenar en el bloque suministrado
- * @param data_size Tamaño en bytes de cada elemento almacenado
- * @return Puntero al descriptor de la cola de datos creada
+ * @param[in]   data        Puntero al bloque de datos donde se almacenaran los elementos
+ * @param[in]   data_count  Cantidad de elementos que se pueden almacenar en el bloque suministrado
+ * @param[in]   data_size   Tamaño en bytes de cada elemento almacenado
+ * @return                  Puntero al descriptor de la cola de datos creada
  */
 eos_queue_t QueueCreate(void* data, uint32_t data_count, uint32_t data_size);
 
 /**
  * @brief Función interna del sistema sistema operativo para agregar un dato en una cola
  *
- * @param queue Puntero al descriptor de la cola de datos
+ * @remark Cuando esta función se llama desde la rutina de servicio de una interrupción
+ * y la cola esta llena la función retorna \p false.
+ *
+ * @param[in] queue     Puntero al descriptor de la cola de datos
+ * @param[in] data      Puntero al bloque con el dato que se debe almacenar en la cola
+ * @return \p true      El dato se pudo almacenar en la cola sin errores
+ * @return \p false     El el dato no se pudo almacenar en la cola porque estaba llena
+ *                      y la función se llamó desde la rutina de servicio de una interrupción
  */
-void QueueGive(eos_queue_t queue, void const* const data);
+bool QueueGive(eos_queue_t queue, void const* const data);
 
 /**
  * @brief Función interna del sistema operativo para obtener un dato de una cola
  *
- * @param queue Puntero al descriptor de la cola de datos
+ * @remark Cuando esta función se llama desde la rutina de servicio de una interrupción
+ * y la cola esta vacia la función retorna \p false.
+ *
+ * @param[in] queue     Puntero al descriptor de la cola de datos
+ * @param[in] data      Puntero al bloque donde se debe almacenar el dato obtenido de la cola
+ * @return \p true      El dato se pudo recuperar de la cola sin errores
+ * @return \p false     El el dato no se pudo obtener de la cola porque estaba vacia
+ *                      y la función se llamó desde la rutina de servicio de una interrupción
  */
-void QueueTake(eos_queue_t queue, void* const data);
+bool QueueTake(eos_queue_t queue, void* const data);
 
 /**
  * @brief Función interna del sistema operativo para destruir una cola de datos
  *
  * @param queue Puntero al descriptor de la cola de datos
- * @return eos_queue_t
  */
 void QueueDestroy(eos_queue_t self);
 
