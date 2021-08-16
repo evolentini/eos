@@ -41,6 +41,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   5 | 2021.08.16 | evolentini      | Se incluye una funcion para ceder el procesador         |
  **|   4 | 2021.08.15 | evolentini      | Se incluyen los handlers de interrupciones              |
  **|   3 | 2021.08.14 | evolentini      | Se incluyen las funciones para manejo de colas de datos |
  **|   2 | 2021.08.09 | evolentini      | Se incluyen las funciones para manejo de semaforos      |
@@ -69,6 +70,7 @@ extern "C" {
  */
 typedef enum {
     EOS_SERVICE_DELAY = 1,
+    EOS_SERVICE_YIELD,
     EOS_SERVICE_GIVE,
     EOS_SERVICE_TAKE,
 } eos_services_t;
@@ -119,6 +121,11 @@ void EosStartScheduler(void);
  * @param[in]  delay        Cantidad de tiempo en milisegundos que espera la tarea
  */
 void EosWaitDelay(uint32_t delay);
+
+/**
+ * @brief Función para ceder el procesador voluntariamente
+ */
+void EosCpuYield(void);
 
 /**
  * @brief Función del sistema operativo para crear un semaforo contador

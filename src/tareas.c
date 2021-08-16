@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|  15 | 2021.08.16 | evolentini      | Se incluye una funcion para ceder el procesador         |
  **|  14 | 2021.08.15 | evolentini      | Compatibilidad con los handlers de interrupciones       |
  **|  13 | 2021.08.09 | evolentini      | Se publican funciones necesarias implementar semaforos  |
  **|  12 | 2021.08.10 | evolentini      | Soporte para encolar las tareas con una lista enlazada  |
@@ -415,6 +416,10 @@ void SVC_Handler(void)
     case EOS_SERVICE_DELAY:
         kernel->active_task->state = WAITING;
         kernel->active_task->wait_ticks = data;
+        break;
+    case EOS_SERVICE_YIELD:
+        // No es necesario agregar ninguna acción adicional porque
+        // al terminar el switch se pide la ejecución del planificador
         break;
     case EOS_SERVICE_GIVE:
         SemaphoreGive((eos_semaphore_t)data);

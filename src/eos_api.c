@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   5 | 2021.08.16 | evolentini      | Se incluye una funcion para ceder el procesador         |
  **|   4 | 2021.08.15 | evolentini      | Se incluyen los handlers de interrupciones              |
  **|   3 | 2021.08.14 | evolentini      | Se incluyen las funciones para manejo de colas de datos |
  **|   2 | 2021.08.09 | evolentini      | Se incluyen las funciones para manejo de semaforos      |
@@ -85,6 +86,14 @@ void EosWaitDelay(uint32_t delay)
     if (!HandlerActive()) {
         __asm__ volatile("mov r1, %0" : : "r"(delay));
         __asm__ volatile("mov r0, %0" : : "I"(EOS_SERVICE_DELAY));
+        __asm__ volatile("svc #0");
+    }
+}
+
+void EosCpuYield(void)
+{
+    if (!HandlerActive()) {
+        __asm__ volatile("mov r0, %0" : : "I"(EOS_SERVICE_YIELD));
         __asm__ volatile("svc #0");
     }
 }
