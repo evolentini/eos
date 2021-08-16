@@ -231,6 +231,9 @@ __attribute__((naked())) void RetoreContext(void* stack_pointer)
 {
     /* Se recupera el contexto de la tarea a ejecutar desde su correspondiente pila */
     __asm__ volatile("ldmia r0!, {r4-r11,lr}");
+    __asm__ volatile("tst lr,0x10");
+    __asm__ volatile("it eq");
+    __asm__ volatile("vldmeq r0, {s16-s31}");
     __asm__ volatile("msr psp, r0");
     __asm__ volatile("isb");
 
@@ -421,6 +424,9 @@ __attribute__((naked())) void PendSV_Handler(void)
     if ((kernel->active_task) && (kernel->active_task->state != CREATING)) {
         __asm__ volatile("cpsid i");
         __asm__ volatile("mrs r0, psp");
+        __asm__ volatile("tst lr,0x10");
+        __asm__ volatile("it eq");
+        __asm__ volatile("vstmeq r0, {s16-s31}");
         __asm__ volatile("stmdb r0!, {r4-r11,lr}");
         __asm__ volatile("str r0, %0" : "=m"(kernel->active_task->stack_pointer));
 
