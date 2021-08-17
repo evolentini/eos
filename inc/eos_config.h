@@ -61,27 +61,27 @@ extern "C" {
 /**
  * @brief Define la cantidad máxima de tareas que se podrán crear en el sistema operativo
  */
-#define EOS_MAX_TASK_COUNT 4
+#define EOS_MAX_TASK_COUNT 8
 
 /**
  * @brief Cantidad de bytes asignado como pila para cada tarea
  */
-#define EOS_TASK_STACK_SIZE 256
+#define EOS_TASK_STACK_SIZE 2048
 
 /**
  * @brief Define la máxima prioridad que se podrá asignar a una tarea
  */
-#define EOS_MAX_PRIORITY 4
+#define EOS_MAX_PRIORITY 8
 
 /**
  * @brief Define la cantidad máxima semaforos que se podran crear en el sistema
  */
-#define EOS_MAX_SEMAPHORES 8
+#define EOS_MAX_SEMAPHORES 16
 
 /**
  * @brief Define la máxima de colas de datos que se podran crear en el sistema
  */
-#define EOS_MAX_QUEUES 2
+#define EOS_MAX_QUEUES 4
 
 /* === Declaraciones de tipos de datos ========================================================= */
 

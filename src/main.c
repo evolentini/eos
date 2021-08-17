@@ -34,10 +34,11 @@
  */
 
 /** @file main.c
- ** @brief Ejemplo de un cambio de contexto expropiativo
+ ** @brief Excamen final de la asignatura Implementación de Sistemas Operativos
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|  16 | 2021.08.16 | evolentini      | Se cambia el programa para resolver el examen propuesto |
  **|  15 | 2021.08.15 | evolentini      | Se agrega un ejemplo de uso los handler de interrupcion |
  **|  14 | 2021.08.14 | evolentini      | Se agrega un ejemplo de uso de las colas de datos       |
  **|  14 | 2021.08.09 | evolentini      | Se agrega un ejemplo de uso de un semaforo              |
@@ -65,91 +66,80 @@
 #include "sapi.h"
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 
 /* === Definiciones y Macros =================================================================== */
 
-//! Valor del contador para la demora en el parpadeo del led
-#define COUNT_DELAY 300000
+//! Define la cantidad máxima de elementos en la cola de eventos de teclas
+#define TECLAS_CANTIDAD 4
 
-//! Cantidad máxima de elementos en la cola de datos
-#define QUEUE_SIZE 4
+//! Define el tamaño de las entradas en la cola de eventos de teclas
+#define TECLAS_TAMANO sizeof(struct tecla_evento_s)
 
-//! Macro paradefinir un parametro como no utilizado
-#define UNUSED(x) (void)(x)
+//! Define la cantidad máxima de elementos en la cola de eventos de teclas
+#define COLORES_CANTIDAD 4
+
+//! Define el tamaño de las entradas en la cola de eventos de teclas
+#define COLORES_TAMANO sizeof(struct color_evento_s)
+
+//! Define la cantidad máxima de elementos en la cola de eventos de mensajes por consola
+#define MENSAJES_CANTIDAD 4
 
 /* === Declaraciones de tipos de datos internos ================================================ */
 
-//! Estrcutura de datos con un led y un tiempo
-typedef struct parpadeo_s {
-    //! Led sobre el que se debe operar
-    gpioMap_t led;
-    //! Periodo de tiempo que debe permanecer encedido
-    int periodo;
-} * parpadeo_t;
+//! Tipo de datos enumerado con las acciones sobre la teclas
+typedef enum {
+    TECLA_B1_PRESIONADA = 0,
+    TECLA_B1_LIBERADA = 1,
+    TECLA_B2_PRESIONADA = 2,
+    TECLA_B2_LIBERADA = 3,
+} tecla_accion_t;
+
+//! Tipo de datos enumerado con los estados de la MEF que procesa las acciones en las teclas
+typedef enum {
+    ESTADO_REPOSO = 0,
+    ESTADO_UNA_TECLA = 1,
+    ESTADO_DOS_TECLAS = 2,
+    ESTADO_TERMINANDO = 3,
+} estados_t;
+
+//! Tipo de datos enumerado con los estados de la MEF que procesa las acciones en las teclas
+typedef enum {
+    COLOR_VERDE = 0,
+    COLOR_ROJO = 1,
+    COLOR_AMARILLO = 2,
+    COLOR_AZUL = 3,
+} colores_t;
+
+//! Estructura de datos con evento de una tecla y el valor de reloj correspondiente
+typedef struct tecla_evento_s {
+    //! Tipo de accion sobre la tecla
+    tecla_accion_t accion;
+    //! Valor del contador de reloj al relizarse la accion sobre la tecla
+    uint32_t reloj;
+} * tecla_evento_t;
+
+//! Estructura de datos con un color y los tiempos medidos
+typedef struct color_evento_s {
+    //! Diferencia de tiempo entre flancos descendentes
+    uint32_t t1;
+    //! Diferencia de tiempo entre flancos ascendentes
+    uint32_t t2;
+    //! Color correspondiente segun la secuencia de flancos
+    colores_t color;
+} * color_evento_t;
+
+//! Estructura de datos con las dos colas de datos para la tarea de procesamiento
+typedef struct colas_s {
+    //! Cola por la que se reciben los eventos de teclas de los handlers
+    eos_queue_t cola_teclas;
+    //! Cola por la se se envian los eventos de colores a la tarea de presentación
+    eos_queue_t cola_colores;
+    //! Cola por la se se envian los eventos de colores a la tarea de consola
+    eos_queue_t cola_mensajes;
+} * colas_t;
 
 /* === Declaraciones de funciones internas ===================================================== */
-
-/**
- * @brief Función para generar demoras
- * Función basica que genera una demora para permitir el parpadeo de los leds
- *
- * @param[in] espera  Tiempo que demora la espera
- */
-void Delay(int espera);
-
-/**
- * @brief Función que implementa la primera tarea del sistema
- *
- * @param[in] data  Puntero al bloque de datos para parametrizar la tarea
- */
-void Parpadeo(void* data);
-
-/**
- * @brief Función que implementa la segunda tarea del sistema
- *
- * @param[in] data  Puntero al bloque de datos para parametrizar la tarea
- */
-void Teclado(void* data);
-
-/**
- * @brief Función que implementa la tercera tarea del sistema
- *
- * @param[in] data  Puntero al bloque de datos para parametrizar la tarea
- */
-void Pantalla(void* data);
-
-/* === Definiciones de variables internas ====================================================== */
-
-//! Constante con los parametros para dos tareas diferentes a partir de la misma funcion
-static const struct parpadeo_s PARAMETROS[] = {
-    { .led = LED1, .periodo = 2000 },
-    { .led = LED2, .periodo = 1000 },
-};
-
-//! Variable global para almacenar la referencia al descriptor al mutex de los parpadeos
-static eos_semaphore_t mutex;
-
-//! Variable global para almacenar los datos de cola
-static struct parpadeo_s queue_storage[QUEUE_SIZE];
-
-/* === Definiciones de variables externas ====================================================== */
-
-/* === Definiciones de funciones internas ====================================================== */
-
-/**
- * @brief Función de espera pasiva para la tarea iactiva del sistema
- *
- * @param espera Cantidad de tiempo de la espera
- */
-void Delay(int espera)
-{
-    uint32_t i;
-    while (espera--) {
-        for (i = COUNT_DELAY; i != 0; i--) {
-            __asm__ volatile("nop");
-        }
-    }
-}
 
 /**
  * @brief Funcion para configurar una interupción de puerto GPIO
@@ -158,6 +148,59 @@ void Delay(int espera)
  * @param[in] puerto    Numero de puerto GPIO al que pertenece el terimnal (0 a 7)
  * @param[in] terminal  Numero de terminal GPIO que produce interupción (0 a 31)
  */
+void ConfigurarInterrupcion(uint8_t canal, uint8_t puerto, uint8_t terminal);
+
+/**
+ * @brief Función que incrementa el contador global en un hook del sistick
+ */
+void EosSysTickCallback(void);
+
+/**
+ * @brief Handler para atender la interupcion de teclado
+ *
+ * @param data Refecencia a la cola por la se que deben enviar los eventos
+ */
+void EventoTecla(void* data);
+
+/**
+ * @brief Tarea para procesar los eventos de teclas y generar eventos de colores
+ *
+ * @param data Puntero a una estructura con las colas de teclas y de colores
+ */
+void Procesamiento(void* data);
+
+/**
+ * @brief Tarea que prende los leds del color correspondiente por el tiempo medido
+ *
+ * @param data Puntero la cola por la que se reciben los eventos
+ */
+void Visualizacion(void* data);
+
+/**
+ * @brief Tarea informa por consola el evento de color generado
+ *
+ * @param data Puntero la cola por la que se reciben los eventos
+ */
+void Consola(void* data);
+
+/* === Definiciones de variables internas ====================================================== */
+
+//! Variable global con la cuanta de reloj
+static uint32_t tick_count = 0;
+
+//! Variable global para el almacenamiento de la cola de teclas
+static struct tecla_evento_s vector_teclas[TECLAS_CANTIDAD] = { 0 };
+
+//! Variable global para el almacenamiento de la cola de colores
+static struct color_evento_s vector_colores[COLORES_CANTIDAD] = { 0 };
+
+//! Variable global para el almacenamiento de la cola de mensajes
+static struct color_evento_s vector_mensajes[MENSAJES_CANTIDAD] = { 0 };
+
+/* === Definiciones de variables externas ====================================================== */
+
+/* === Definiciones de funciones internas ====================================================== */
+
 void ConfigurarInterrupcion(uint8_t canal, uint8_t puerto, uint8_t terminal)
 {
     uint32_t mascara = 1 << canal;
@@ -168,127 +211,163 @@ void ConfigurarInterrupcion(uint8_t canal, uint8_t puerto, uint8_t terminal)
     Chip_PININT_EnableIntHigh(LPC_GPIO_PIN_INT, mascara);
 }
 
-/**
- * @brief Función que parpadea el canal verde del led RGB cuando el sistema esta inactivo
- */
-void EosInactiveCallback(void)
-{
-    gpioToggle(LEDG);
-    Delay(10);
-}
+void EosSysTickCallback(void) { tick_count++; }
 
-/**
- * @brief Función que parpadea el canal azul del led RGB cada 1000 ciclos del SysTick
- */
-void EosSysTickCallback(void)
-{
-    static int divisor = 0;
-    divisor = (divisor + 1) % 1000;
-
-    if (divisor == 0) {
-        gpioToggle(LEDB);
-    }
-}
-
-/**
- * @brief Función que prende un led cuando una tarea termina
- *
- * @param task Puntero al descriptor de la tarea que termina
- */
-void EosEndTaskCallback(eos_task_t task)
-{
-    // Enciende un led de error
-    gpioToggle(LEDR);
-}
-
-/**
- * @brief Tarea revisa el teclado y encola mensajes
- *
- * @param data Puntero a los parametros de la tarea
- */
-void Teclado(void* data)
-{
-    eos_queue_t queue = data;
-    struct parpadeo_s datos[1];
-
-    EosTaskCreate(Parpadeo, (void*)&PARAMETROS[1], 1);
-
-    while (true) {
-        datos->led = LED3;
-        datos->periodo = 0;
-        do {
-            if (!gpioRead(TEC3)) {
-                datos->periodo = 500;
-            } else if (!gpioRead(TEC4)) {
-                datos->periodo = 2000;
-            }
-            EosWaitDelay(250);
-        } while (datos->periodo == 0);
-
-        if (datos->periodo) {
-            EosQueueGive(queue, datos);
-        }
-        do {
-            EosWaitDelay(250);
-        } while (!gpioRead(TEC3) || !gpioRead(TEC4));
-    }
-}
-
-/**
- * @brief Tarea revisa el teclado y encola mensajes
- *
- * @param data Puntero a los parametros de la tarea
- */
-void Pantalla(void* data)
-{
-    eos_queue_t queue = data;
-    struct parpadeo_s datos[1];
-
-    while (true) {
-        EosQueueTake(queue, datos);
-        gpioWrite(datos->led, true);
-        EosWaitDelay(datos->periodo);
-
-        gpioWrite(datos->led, false);
-        EosWaitDelay(datos->periodo);
-    }
-}
-
-/**
- * @brief Tarea que parpadea un led con una espera pasiva
- *
- * @param data Puntero a los parametros de la tarea
- */
-void Parpadeo(void* data)
-{
-    parpadeo_t parametros = data;
-    while (true) {
-        EosSemaphoreTake(mutex);
-        gpioWrite(parametros->led, true);
-        EosWaitDelay(parametros->periodo);
-
-        EosSemaphoreGive(mutex);
-        gpioWrite(parametros->led, false);
-        EosWaitDelay(parametros->periodo);
-    }
-}
-/**
- * @brief Handler para atender la interupcion de teclado
- *
- * @param data
- */
 void EventoTecla(void* data)
 {
-    int indice = 0;
-    bool estado = (Chip_PININT_GetFallStates(LPC_GPIO_PIN_INT) & (1 << indice));
-    Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, 1 << indice);
+    eos_queue_t cola = data;
+    struct tecla_evento_s evento[1];
+    static uint32_t ultimo_evento[2] = { 0 };
 
-    if (estado) {
-        eos_queue_t queue = data;
-        struct parpadeo_s datos[1];
-        datos->led = LED3;
-        datos->periodo = 5000;
-        EosQueueGive(queue, datos);
+    for (int tecla = 0; tecla < 2; tecla++) {
+        bool presionada = (Chip_PININT_GetFallStates(LPC_GPIO_PIN_INT) & (1 << tecla));
+        bool liberada = (Chip_PININT_GetRiseStates(LPC_GPIO_PIN_INT) & (1 << tecla));
+        Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, 1 << tecla);
+
+        if (presionada && (tick_count - ultimo_evento[tecla] > 100)) {
+            ultimo_evento[tecla] = tick_count;
+            evento->accion = (tecla & 0x01) << 1;
+            evento->reloj = tick_count;
+            EosQueueGive(cola, evento);
+        }
+        if (liberada && (tick_count - ultimo_evento[tecla] > 100)) {
+            ultimo_evento[tecla] = tick_count;
+            evento->accion = ((tecla & 0x01) << 1) + 1;
+            evento->reloj = tick_count;
+            EosQueueGive(cola, evento);
+        }
+    }
+}
+
+void Procesamiento(void* data)
+{
+    colas_t colas = data;
+    estados_t estado = ESTADO_REPOSO;
+    struct tecla_evento_s eventos[4];
+    struct color_evento_s resultado[1];
+
+    while (true) {
+        EosQueueTake(colas->cola_teclas, &eventos[estado]);
+
+        switch (estado) {
+        case ESTADO_REPOSO:
+            // Si el evento es una tecla presionada
+            if ((eventos[estado].accion & 0x01) == 0) {
+                estado = ESTADO_UNA_TECLA;
+            }
+            break;
+        case ESTADO_UNA_TECLA:
+            // Si el evento es una tecla presionada
+            if ((eventos[estado].accion & 0x01) == 0) {
+                estado = ESTADO_DOS_TECLAS;
+            } else {
+                estado = ESTADO_REPOSO;
+            }
+            break;
+        case ESTADO_DOS_TECLAS:
+            // Si el evento es una tecla liberada
+            if ((eventos[estado].accion & 0x01) == 1) {
+                estado = ESTADO_TERMINANDO;
+            } else {
+                estado = ESTADO_REPOSO;
+            }
+            break;
+        default:
+            // Si el evento es una tecla liberada
+            if ((eventos[estado].accion & 0x01) == 1) {
+                resultado->t1 = eventos[1].reloj - eventos[0].reloj;
+                resultado->t2 = eventos[3].reloj - eventos[2].reloj;
+
+                if (eventos[0].accion == TECLA_B1_PRESIONADA) {
+                    if (eventos[2].accion == TECLA_B1_LIBERADA) {
+                        resultado->color = COLOR_VERDE;
+                    } else {
+                        resultado->color = COLOR_ROJO;
+                    }
+                } else {
+                    if (eventos[2].accion == TECLA_B1_LIBERADA) {
+                        resultado->color = COLOR_AMARILLO;
+                    } else {
+                        resultado->color = COLOR_AZUL;
+                    }
+                }
+                EosQueueGive(colas->cola_colores, resultado);
+                EosQueueGive(colas->cola_mensajes, resultado);
+            }
+            estado = ESTADO_REPOSO;
+            break;
+        }
+    }
+}
+
+void Visualizacion(void* data)
+{
+    eos_queue_t cola = data;
+    struct color_evento_s evento[1];
+
+    while (1) {
+        EosQueueTake(cola, evento);
+        switch (evento->color) {
+        case COLOR_VERDE:
+            gpioWrite(LED3, true);
+            break;
+        case COLOR_ROJO:
+            gpioWrite(LED1, true);
+            break;
+        case COLOR_AMARILLO:
+            gpioWrite(LED2, true);
+            break;
+        default:
+            gpioWrite(LEDB, true);
+            break;
+        }
+        EosWaitDelay(evento->t1 + evento->t2);
+        switch (evento->color) {
+        case COLOR_VERDE:
+            gpioWrite(LED3, false);
+            break;
+        case COLOR_ROJO:
+            gpioWrite(LED1, false);
+            break;
+        case COLOR_AMARILLO:
+            gpioWrite(LED2, false);
+            break;
+        default:
+            gpioWrite(LEDB, false);
+            break;
+        }
+    }
+}
+
+void Consola(void* data)
+{
+    static const char* COLOR[] = { "Verde", "Rojo", "Amarillo", "Azul" };
+
+    eos_queue_t cola = data;
+    struct color_evento_s evento[1];
+    static char mensaje[8];
+
+    uartConfig(UART_USB, 115200);
+    while (1) {
+        EosQueueTake(cola, evento);
+        uartWriteString(UART_USB, "Led ");
+        uartWriteString(UART_USB, COLOR[evento->color]);
+        uartWriteString(UART_USB, " encendido:\r\n");
+
+        uartWriteString(UART_USB, "\t Tiempo encendido: ");
+        itoa(evento->t1 + evento->t2, mensaje, 10);
+        uartWriteString(UART_USB, mensaje);
+        uartWriteString(UART_USB, " ms \r\n");
+
+        uartWriteString(UART_USB, "\t Tiempo entre flancos descendentes: ");
+        itoa(evento->t1, mensaje, 10);
+        uartWriteString(UART_USB, mensaje);
+        uartWriteString(UART_USB, " ms \r\n");
+
+        uartWriteString(UART_USB, "\t Tiempo entre flancos ascendentes: ");
+        itoa(evento->t2, mensaje, 10);
+        uartWriteString(UART_USB, mensaje);
+        uartWriteString(UART_USB, " ms \r\n\r\n");
     }
 }
 
@@ -296,23 +375,28 @@ void EventoTecla(void* data)
 
 int main(void)
 {
-    /* Variable para almacenar la referencia al descriptor de la cola de datos */
-    eos_queue_t queue;
+    // Variable con las colas que se envian a la tarea de procesamiento
+    static struct colas_s colas[1];
 
-    /* Creación de las tareas */
-    queue = EosQueueCreate(&queue_storage, QUEUE_SIZE, sizeof(struct parpadeo_s));
-    EosTaskCreate(Teclado, queue, 0);
-    EosTaskCreate(Pantalla, queue, 0);
-
-    ConfigurarInterrupcion(0, 0, 4);
-    EosHandlerInstall(PIN_INT0_IRQn, 0, EventoTecla, queue);
-
-    mutex = EosSemaphoreCreate(1);
-    EosTaskCreate(Parpadeo, (void*)&PARAMETROS[0], 1);
-    EosTaskCreate(Parpadeo, (void*)&PARAMETROS[1], 1);
-
-    /* Configuración de los dispositivos de la placa */
+    // Configuración de los dispositivos de la placa
     boardConfig();
+
+    // Variable para almacenar la referencia al descriptor de la cola de datos
+    colas->cola_teclas = EosQueueCreate(vector_teclas, TECLAS_CANTIDAD, TECLAS_TAMANO);
+    colas->cola_colores = EosQueueCreate(vector_colores, COLORES_CANTIDAD, COLORES_TAMANO);
+    colas->cola_mensajes = EosQueueCreate(vector_mensajes, MENSAJES_CANTIDAD, COLORES_TAMANO);
+
+    // Configuraicón de las interrupciones de teclado
+    ConfigurarInterrupcion(0, 0, 4);
+    EosHandlerInstall(PIN_INT0_IRQn, 0, EventoTecla, colas->cola_teclas);
+
+    ConfigurarInterrupcion(1, 0, 8);
+    EosHandlerInstall(PIN_INT1_IRQn, 0, EventoTecla, colas->cola_teclas);
+
+    // Creación de la tarea que procesa los eventos de las teclas
+    EosTaskCreate(Procesamiento, colas, 1);
+    EosTaskCreate(Visualizacion, colas->cola_colores, 2);
+    EosTaskCreate(Consola, colas->cola_mensajes, 3);
 
     /* Arranque del sistemaoperativo */
     EosStartScheduler();

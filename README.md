@@ -32,4 +32,4 @@ Este proyecto está desarrollado dentro del entorno del proyecto (CIAA)[www.proy
 
 ## En este release
 
-En esta versión del proyecto implementan una función para que la tarea en curso pueda ceder el uso del procesador y generar una llamada al planificador. Ademas se mejoraron las funciones de callback para notificar al usuario los errores en el sistema operativo, para implementar una tarea inactiva o de backgorund, para interceptar la finalización de una tarea y generar un evento periodico sobre el Systick del sistema.
+En esta versión del proyecto ise cambia el programa principal utilizado de ejemplo durante el desarrollo del sistema operativo para resolver el examen final propuesto por la asignatura. El mismo detecta los flancos de dos pulsadores por interrupciones y mide los tiempos entre los flancos descendentes y los flancos ascendentes de las pulsaciones y enciende un led de diferente color segun la secuencia de pulsado y liberación de las teclas. Ademas escribe por la UART del puerto USB de depuración el evento generado y los tiempos medidos. La configuración del puerto serial correspondiente es 115200, 8, N, 1.
