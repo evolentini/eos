@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   6 | 2021.08.16 | evolentini      | Se mejora las notificaciones al usuario                 |
  **|   5 | 2021.08.16 | evolentini      | Se incluye una funcion para ceder el procesador         |
  **|   4 | 2021.08.15 | evolentini      | Se incluyen los handlers de interrupciones              |
  **|   3 | 2021.08.14 | evolentini      | Se incluyen las funciones para manejo de colas de datos |
@@ -72,7 +73,14 @@
 eos_task_t EosTaskCreate(eos_entry_point_t entry_point, void* data, uint8_t priority)
 {
     // Llama a la función privada para crear una tarea
-    return TaskCreate(entry_point, data, priority);
+    eos_task_t result = TaskCreate(entry_point, data, priority);
+
+    // Notifica del error al usuario si corresponde
+    if (!result) {
+        EosOnErrorCallback(EOS_ERRROR_CREATING_TASK);
+    }
+
+    return result;
 }
 
 void EosStartScheduler(void)
@@ -87,6 +95,8 @@ void EosWaitDelay(uint32_t delay)
         __asm__ volatile("mov r1, %0" : : "r"(delay));
         __asm__ volatile("mov r0, %0" : : "I"(EOS_SERVICE_DELAY));
         __asm__ volatile("svc #0");
+    } else {
+        EosOnErrorCallback(EOS_ERRROR_DELAY_IN_HANDLER);
     }
 }
 
@@ -95,13 +105,22 @@ void EosCpuYield(void)
     if (!HandlerActive()) {
         __asm__ volatile("mov r0, %0" : : "I"(EOS_SERVICE_YIELD));
         __asm__ volatile("svc #0");
+    } else {
+        EosOnErrorCallback(EOS_ERRROR_YIELD_IN_HANDLER);
     }
 }
 
 eos_semaphore_t EosSemaphoreCreate(int32_t initial_value)
 {
     // Llama a la función privada para crear un semaforo
-    return SemaphoreCreate(initial_value);
+    eos_semaphore_t result = SemaphoreCreate(initial_value);
+
+    // Notifica del error al usuario si corresponde
+    if (!result) {
+        EosOnErrorCallback(EOS_ERRROR_CREATING_SEMAPHORE);
+    }
+
+    return result;
 }
 
 void EosSemaphoreGive(eos_semaphore_t self)
@@ -127,13 +146,23 @@ bool EosSemaphoreTake(eos_semaphore_t self)
         __asm__ volatile("svc #0");
         __asm__ volatile("str r0, %0" : "=m"(resultado));
     }
+    if (!resultado) {
+        EosOnErrorCallback(EOS_ERRROR_TAKING_SEMAPHORE);
+    }
     return resultado;
 }
 
 eos_queue_t EosQueueCreate(void* data, uint32_t count, uint32_t size)
 {
-    // Llama a la función privada
-    return QueueCreate(data, count, size);
+    // Llama a la función privada para crear la cola
+    eos_queue_t result = QueueCreate(data, count, size);
+
+    // Notifica del error al usuario si corresponde
+    if (!result) {
+        EosOnErrorCallback(EOS_ERRROR_CREATING_QUEUE);
+    }
+
+    return result;
 }
 
 bool EosQueueGive(eos_queue_t queue, void* data)
@@ -159,6 +188,18 @@ void EosHandlerRemove(uint8_t service)
     // Llama a la función privada
     HandlerRemove(service);
 }
+
+__attribute__((weak)) void EosEndTaskCallback(eos_task_t task) { }
+
+__attribute__((weak)) void EosSysTickCallback(void) { }
+
+__attribute__((weak)) void EosInactiveCallback(void)
+{
+    /* Duerme el procesador hasta que llegue una interrupción */
+    __asm__ volatile("wfi");
+}
+
+__attribute__((weak)) void EosOnErrorCallback(eos_error_t error) { }
 
 /* === Ciere de documentacion ================================================================== */
 

@@ -41,6 +41,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   9 | 2021.08.16 | evolentini      | Se mueven las notificaciones al usuario a la API        |
  **|   8 | 2021.08.09 | evolentini      | Se publican funciones necesarias implementar semaforos  |
  **|   7 | 2021.08.10 | evolentini      | Soporte para encolar las tareas con una lista enlazada  |
  **|   6 | 2021.08.09 | evolentini      | Se separan las funciones publicas y privadas del SO     |
@@ -117,28 +118,6 @@ void StartScheduler(void);
  * @brief Función para programar una llamada al planificado al terminar la interrupcion en curso
  */
 void SchedulingRequired(void);
-
-/**
- * @brief Función de usuario para ejecutar cuando el sistema se encuentra inactivo
- *
- * @remarks Esta función se ejecuta solo cuando el planificador no puede asignar el procesador
- * a ninguna otra tarea. Esta tarea función no debería terminar nunca y no puede utilizar ningun
- * servicio del sistema operativo ya que siempre debe permanecer en estado READY.
- */
-void InactiveCallback(void);
-
-/**
- * @brief Función de usuario para ejecutar en cada interrupcion del temporizador del sistema
- *
- * @remarks Esta función se ejecuta en modo privilegiado y en el contexto del sistema operativo
- * por lo que no se recomienda su utilización.
- */
-void SysTickCallback(void);
-
-/**
- * @brief Función de usuario para notificar la terminación de una tarea
- */
-void EndTaskCallback(eos_task_t task);
 
 /**
  * @brief Función para encolar una tarea en una cola de tareas

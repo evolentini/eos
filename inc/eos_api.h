@@ -41,6 +41,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|   6 | 2021.08.16 | evolentini      | Se mejora las notificaciones al usuario                 |
  **|   5 | 2021.08.16 | evolentini      | Se incluye una funcion para ceder el procesador         |
  **|   4 | 2021.08.15 | evolentini      | Se incluyen los handlers de interrupciones              |
  **|   3 | 2021.08.14 | evolentini      | Se incluyen las funciones para manejo de colas de datos |
@@ -74,6 +75,24 @@ typedef enum {
     EOS_SERVICE_GIVE,
     EOS_SERVICE_TAKE,
 } eos_services_t;
+
+/**
+ * @brief Tipo de datos enumerado con los errores notificados al usuario
+ */
+typedef enum {
+    //! Error al crear una tarea porque se alcanzó la cantidad maxima configurada
+    EOS_ERRROR_CREATING_TASK,
+    //! Error al crear un semaforo porque se alcanzó la cantidad maxima configurada
+    EOS_ERRROR_CREATING_SEMAPHORE,
+    //! Error al crear una cola porque se alcanzó la cantidad maxima configurada
+    EOS_ERRROR_CREATING_QUEUE,
+    //! Error al tomar un semaforo no disponible en un handler de interrupcion
+    EOS_ERRROR_TAKING_SEMAPHORE,
+    //! Error al llamar la función de espera en un handler de interrupcion
+    EOS_ERRROR_DELAY_IN_HANDLER,
+    //! Error al tratar de ceder el CPU en un handler de interrupcion
+    EOS_ERRROR_YIELD_IN_HANDLER,
+} eos_error_t;
 
 /**
  * @brief Tipo de datos con un puntero a una funcion que implementa una tarea
@@ -190,6 +209,35 @@ void EosHandlerInstall(
  * @param[in] service       Numero de interupcion en la que se desea instalar el handler
  */
 void EosHandlerRemove(uint8_t service);
+
+/**
+ * @brief Función de usuario para ejecutar cuando el sistema se encuentra inactivo
+ *
+ * @remarks Esta función se ejecuta solo cuando el planificador no puede asignar el procesador
+ * a ninguna otra tarea. Esta tarea función no debería terminar nunca y no puede utilizar ningun
+ * servicio del sistema operativo ya que siempre debe permanecer en estado READY.
+ */
+void EosInactiveCallback(void);
+
+/**
+ * @brief Función de usuario para ejecutar en cada interrupcion del temporizador del sistema
+ *
+ * @remarks Esta función se ejecuta en modo privilegiado y en el contexto del sistema operativo
+ * por lo que no se recomienda su utilización.
+ */
+void EosSysTickCallback(void);
+
+/**
+ * @brief Función de usuario para notificar la terminación de una tarea
+ */
+void EosEndTaskCallback(eos_task_t task);
+
+/**
+ * @brief Función de usuario para notificar los errores en la operación del sistema operativo
+ *
+ * @param[in]   error   Tipo de error ocurrido
+ */
+void EosOnErrorCallback(eos_error_t error);
 
 /* === Ciere de documentacion ================================================================== */
 #ifdef __cplusplus

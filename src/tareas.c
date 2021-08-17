@@ -38,6 +38,7 @@
  **
  **| REV | YYYY.MM.DD | Autor           | Descripción de los cambios                              |
  **|-----|------------|-----------------|---------------------------------------------------------|
+ **|  16 | 2021.08.16 | evolentini      | Se mueven las notificaciones al usuario a la API        |
  **|  15 | 2021.08.16 | evolentini      | Se incluye una funcion para ceder el procesador         |
  **|  14 | 2021.08.15 | evolentini      | Compatibilidad con los handlers de interrupciones       |
  **|  13 | 2021.08.09 | evolentini      | Se publican funciones necesarias implementar semaforos  |
@@ -201,7 +202,7 @@ static struct kernel_s kernel[1] = { 0 };
 
 void TaskError(void)
 {
-    EndTaskCallback(kernel->active_task);
+    EosEndTaskCallback(kernel->active_task);
     TaskSetState(kernel->active_task, CREATING);
 }
 
@@ -261,7 +262,7 @@ void TickEvent(void)
             }
         }
     }
-    SysTickCallback();
+    EosSysTickCallback();
 }
 
 void TaskAsignStack(eos_task_t task, uint16_t size)
@@ -284,18 +285,8 @@ void TaskBackground(void* data)
     (void)data;
 
     while (1) {
-        InactiveCallback();
+        EosInactiveCallback();
     }
-}
-
-__attribute__((weak())) void EndTaskCallback(eos_task_t task) { }
-
-__attribute__((weak())) void SysTickCallback(void) { }
-
-__attribute__((weak())) void InactiveCallback(void)
-{
-    /* Duerme el procesador hasta que llegue una interrupción */
-    __asm__ volatile("wfi");
 }
 
 /* === Definiciones de funciones externas ====================================================== */

@@ -171,7 +171,7 @@ void ConfigurarInterrupcion(uint8_t canal, uint8_t puerto, uint8_t terminal)
 /**
  * @brief Función que parpadea el canal verde del led RGB cuando el sistema esta inactivo
  */
-void InactiveCallback(void)
+void EosInactiveCallback(void)
 {
     gpioToggle(LEDG);
     Delay(10);
@@ -180,7 +180,7 @@ void InactiveCallback(void)
 /**
  * @brief Función que parpadea el canal azul del led RGB cada 1000 ciclos del SysTick
  */
-void SysTickCallback(void)
+void EosSysTickCallback(void)
 {
     static int divisor = 0;
     divisor = (divisor + 1) % 1000;
@@ -195,7 +195,7 @@ void SysTickCallback(void)
  *
  * @param task Puntero al descriptor de la tarea que termina
  */
-void EndTaskCallback(eos_task_t task)
+void EosEndTaskCallback(eos_task_t task)
 {
     // Enciende un led de error
     gpioToggle(LEDR);
